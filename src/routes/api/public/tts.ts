@@ -35,7 +35,7 @@ async function handle(raw: Record<string, unknown>) {
     });
     if (p.format === "json")
       return Response.json({ audio: bytesToB64(r.audio), mime: r.mime, text: r.text, lang: r.lang }, { headers: CORS });
-    return new Response(r.audio, {
+    return new Response(r.audio as BodyInit, {
       headers: {
         ...CORS,
         "Content-Type": r.mime,

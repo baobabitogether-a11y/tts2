@@ -3,10 +3,10 @@ export type Provider = "google" | "lovable" | "openrouter";
 export type TtsInput = {
   text: string;
   lang: string;
-  targetLang?: string;
+  targetLang?: string | undefined;
   provider: Provider;
-  apiKey?: string;
-  voice?: string;
+  apiKey?: string | undefined;
+  voice?: string | undefined;
 };
 export type TtsResult = { audio: Uint8Array; mime: string; text: string; lang: string };
 
@@ -88,7 +88,7 @@ function chunkText(text: string, max = 180): string[] {
     } else cur = (cur + " " + w).trim();
   }
   if (cur) chunks.push(cur);
-  return chunks.flatMap((c) => (c.length > max ? c.match(new RegExp(`.{1,${max}}`, "g"))! : [c]));
+  return chunks.flatMap((c) => (c.length > max ? (c.match(new RegExp(`.{1,${max}}`, "g")) ?? []) : [c]));
 }
 
 // ---------------- Google ----------------
@@ -104,7 +104,8 @@ async function googleTts(text: string, lang: string) {
   const parts: Uint8Array[] = [];
   const chunks = chunkText(text);
   for (let i = 0; i < chunks.length; i++) {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunks[i])}&total=${chunks.length}&idx=${i}&textlen=${chunks[i].length}`;
+    const chunk = chunks[i] ?? "";
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}`;
     const res = await fetch(url, { headers: { "User-Agent": UA, Referer: "https://translate.google.com/" } });
     if (!res.ok) throw new HttpError(502, `Google TTS failed (${res.status})`);
     parts.push(new Uint8Array(await res.arrayBuffer()));
@@ -114,7 +115,7 @@ async function googleTts(text: string, lang: string) {
 
 // ---------------- Lovable AI ----------------
 function lovableKey() {
-  const k = process.env.LOVABLE_API_KEY;
+  const k = process.env['LOVABLE_API_KEY'];
   if (!k) throw new HttpError(500, "LOVABLE_API_KEY is not configured");
   return k;
 }
@@ -173,7 +174,7 @@ async function lovableTts(text: string, voice = "Kore") {
 // Shared, in-memory key order for round-robin. Blocked keys move to the end.
 let keyOrder: string[] | null = null;
 function configuredKeys(): string[] {
-  const raw = process.env.OPENROUTER_API_KEYS || "";
+  const raw = process.env['OPENROUTER_API_KEYS'] || "";
   const fresh = raw.split(/[\s,]+/).filter(Boolean);
   if (!keyOrder || keyOrder.length !== fresh.length || fresh.some((k) => !keyOrder!.includes(k))) keyOrder = fresh;
   return keyOrder;
@@ -190,7 +191,7 @@ async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string
   if (!keys.length) throw new HttpError(400, "No OpenRouter api_key provided and OPENROUTER_API_KEYS is not configured");
   let lastErr = "";
   for (let attempt = 0; attempt < keys.length; attempt++) {
-    const key = keys[0];
+    const key = keys[0]!;
     const r = await fn(key);
     if (r.ok) return parse(r);
     lastErr = `${r.status} ${(await r.text()).slice(0, 200)}`;
