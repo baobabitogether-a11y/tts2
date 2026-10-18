@@ -7,7 +7,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "*",
-  "Access-Control-Expose-Headers": "X-Spoken-Text, X-Spoken-Lang, Content-Type",
+  "Access-Control-Expose-Headers": "X-Spoken-Text, X-Spoken-Lang, X-Cache, Content-Type",
 };
 
 const schema = z.object({
@@ -24,7 +24,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
   const t0 = Date.now();
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    record({ at: new Date().toISOString(), method, provider: String(raw.provider ?? ""), lang: String(raw.lang ?? ""), status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
+    record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
     return Response.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS });
   }
   const p = parsed.data;
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/public/tts")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
-      GET: async ({ request }) => handle(Object.fromEntries(new URL(request.url).searchParams)),
+      GET: async ({ request }) => handle(Object.fromEntries(new URL(request.url).searchParams), "GET"),
       POST: async ({ request }) => {
         let body: Record<string, unknown> = {};
         try {
@@ -78,7 +78,7 @@ export const Route = createFileRoute("/api/public/tts")({
         } catch {
           return Response.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS });
         }
-        return handle(body);
+        return handle(body, "POST");
       },
     },
   },
