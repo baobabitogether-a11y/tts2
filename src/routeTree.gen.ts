@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
+import { Route as ApiPublicTtsRouteImport } from './routes/api/public/tts'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOpenapiDotjsonRoute = ApiPublicOpenapiDotjsonRouteImport.update({
+  id: '/api/public/openapi.json',
+  path: '/api/public/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicTtsRoute = ApiPublicTtsRouteImport.update({
+  id: '/api/public/tts',
+  path: '/api/public/tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/openapi.json' | '/api/public/tts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/openapi.json' | '/api/public/tts'
+  id: '__root__' | '/' | '/api/public/openapi.json' | '/api/public/tts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
+  ApiPublicTtsRoute: typeof ApiPublicTtsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/openapi.json': {
+      id: '/api/public/openapi.json'
+      path: '/api/public/openapi.json'
+      fullPath: '/api/public/openapi.json'
+      preLoaderRoute: typeof ApiPublicOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tts': {
+      id: '/api/public/tts'
+      path: '/api/public/tts'
+      fullPath: '/api/public/tts'
+      preLoaderRoute: typeof ApiPublicTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
+  ApiPublicTtsRoute: ApiPublicTtsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
