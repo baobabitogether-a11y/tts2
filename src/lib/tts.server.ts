@@ -179,6 +179,23 @@ function configuredKeys(): string[] {
   if (!keyOrder || keyOrder.length !== fresh.length || fresh.some((k) => !keyOrder!.includes(k))) keyOrder = fresh;
   return keyOrder;
 }
+export const startedAt = Date.now();
+export type KeyStatus = { status: "unknown" | "ok" | "blocked" | "error"; code?: number; lastUsed?: number; lastError?: string };
+export const keyStatus = new Map<string, KeyStatus>();
+export function getOpenRouterKeys() {
+  return [...configuredKeys()];
+}
+export function redact(k: string) {
+  return k.length <= 10 ? "***" : `${k.slice(0, 6)}…${k.slice(-4)}`;
+}
+function mark(key: string, code: number, err?: string) {
+  keyStatus.set(key, {
+    status: code < 300 ? "ok" : BLOCKED.has(code) ? "blocked" : "error",
+    code,
+    lastUsed: Date.now(),
+    ...(err ? { lastError: err.slice(0, 200) } : {}),
+  });
+}
 const BLOCKED = new Set([401, 402, 403, 429]);
 
 async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>): Promise<T> {
@@ -193,8 +210,12 @@ async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string
   for (let attempt = 0; attempt < keys.length; attempt++) {
     const key = keys[0]!;
     const r = await fn(key);
-    if (r.ok) return parse(r);
+    if (r.ok) {
+      mark(key, r.status);
+      return parse(r);
+    }
     lastErr = `${r.status} ${(await r.text()).slice(0, 200)}`;
+    mark(key, r.status, lastErr);
     if (BLOCKED.has(r.status) || r.status >= 500) {
       keys.push(keys.shift()!); // move blocked key to end, continue probing
       continue;
