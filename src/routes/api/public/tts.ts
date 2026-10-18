@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { synthesize, HttpError, bytesToB64 } from "@/lib/tts.server";
+import { record, cacheGet, cacheSet } from "@/lib/monitor.server";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
