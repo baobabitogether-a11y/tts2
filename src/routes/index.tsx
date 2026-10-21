@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 const field = "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
 
 function Index() {
-  const [form, setForm] = useState({ text: "Hello world", lang: "en", target_lang: "", provider: "google", api_key: "", voice: "" });
+  const [form, setForm] = useState({ text: "Hello world", lang: "en", target_lang: "", provider: "google", api_key: "", voice: "", speed: "1", options: "" });
   const [audio, setAudio] = useState<string | null>(null);
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,10 +30,28 @@ function Index() {
     setInfo("");
     setAudio(null);
     try {
+      let options: Record<string, unknown> | undefined;
+      if (form.options.trim()) {
+        try {
+          options = JSON.parse(form.options);
+        } catch {
+          throw new Error("options is not valid JSON");
+        }
+      }
+      const body: Record<string, unknown> = {
+        text: form.text,
+        lang: form.lang,
+        provider: form.provider,
+        ...(form.target_lang && { target_lang: form.target_lang }),
+        ...(form.api_key && { api_key: form.api_key }),
+        ...(form.voice && { voice: form.voice }),
+        ...(Number(form.speed) !== 1 && { speed: Number(form.speed) }),
+        ...(options && { options }),
+      };
       const res = await fetch("/api/public/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(JSON.stringify(await res.json()));
       const blob = await res.blob();
@@ -70,6 +88,19 @@ function Index() {
             <input className={field} type="password" placeholder="api_key (optional)" value={form.api_key} onChange={set("api_key")} />
           )}
         </div>
+        <label className="block text-xs text-muted-foreground">
+          speed: {form.speed}x
+          <input className="w-full accent-foreground" type="range" min="0.25" max="4" step="0.25" value={form.speed} onChange={set("speed")} />
+        </label>
+        {form.provider !== "google" && (
+          <textarea
+            className={field}
+            rows={2}
+            placeholder='options (optional JSON, e.g. {"model":"…"})'
+            value={form.options}
+            onChange={set("options")}
+          />
+        )}
         <button onClick={run} disabled={busy} className="bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50">
           {busy ? "…" : "POST /api/public/tts"}
         </button>
