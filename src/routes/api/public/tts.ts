@@ -10,6 +10,23 @@ const CORS = {
   "Access-Control-Expose-Headers": "X-Spoken-Text, X-Spoken-Lang, X-Cache, Content-Type",
 };
 
+const optionsSchema = z
+  .union([
+    z.record(z.string(), z.unknown()),
+    z
+      .string()
+      .max(2000)
+      .transform((s, ctx) => {
+        try {
+          const v: unknown = JSON.parse(s);
+          if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
+        } catch {}
+        ctx.addIssue({ code: "custom", message: "options must be a JSON object" });
+        return z.NEVER;
+      }),
+  ])
+  .optional();
+
 const schema = z.object({
   text: z.string().trim().min(1).max(5000),
   lang: z.string().trim().min(2).max(20),
@@ -17,6 +34,8 @@ const schema = z.object({
   provider: z.enum(["google", "lovable", "openrouter"]).default("google"),
   api_key: z.string().max(500).optional().or(z.literal("")),
   voice: z.string().max(50).optional().or(z.literal("")),
+  speed: z.coerce.number().min(0.25).max(4).optional(),
+  options: optionsSchema,
   format: z.enum(["binary", "json"]).default("binary"),
 });
 
@@ -29,7 +48,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
   }
   const p = parsed.data;
   const base = { method, provider: p.provider, lang: p.lang, ...(p.target_lang ? { target_lang: p.target_lang } : {}) };
-  const key = JSON.stringify([p.provider, p.lang, p.target_lang || "", p.voice || "", p.text]);
+  const key = JSON.stringify([p.provider, p.lang, p.target_lang || "", p.voice || "", p.speed ?? "", p.options ?? null, p.text]);
   try {
     let r = cacheGet(key);
     const cached = !!r;
@@ -41,6 +60,8 @@ async function handle(raw: Record<string, unknown>, method: string) {
         provider: p.provider,
         apiKey: p.api_key || undefined,
         voice: p.voice || undefined,
+        speed: p.speed,
+        options: p.options,
       });
       cacheSet(key, r);
     }
