@@ -186,8 +186,9 @@ function mark(key: string, code: number, err?: string) {
 const BLOCKED = new Set([401, 402, 403, 429]);
 
 async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>): Promise<T> {
-  if (apiKey) {
-    const r = await fn(apiKey);
+  const suppliedKey = apiKey?.trim();
+  if (suppliedKey) {
+    const r = await fn(suppliedKey);
     if (!r.ok) throw new HttpError(r.status, `OpenRouter error: ${(await r.text()).slice(0, 300)}`);
     return parse(r);
   }
