@@ -7,6 +7,8 @@ export type TtsInput = {
   provider: Provider;
   apiKey?: string | undefined;
   voice?: string | undefined;
+  speed?: number | undefined;
+  options?: Record<string, unknown> | undefined;
 };
 export type TtsResult = { audio: Uint8Array; mime: string; text: string; lang: string };
 
@@ -100,12 +102,13 @@ async function googleTranslate(text: string, sl: string, tl: string) {
   return data[0].map((s) => s[0]).join("");
 }
 
-async function googleTts(text: string, lang: string) {
+async function googleTts(text: string, lang: string, speed?: number) {
   const parts: Uint8Array[] = [];
   const chunks = chunkText(text);
+  const speedParam = speed ? `&ttsspeed=${speed}` : "";
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i] ?? "";
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}`;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}${speedParam}`;
     const res = await fetch(url, { headers: { "User-Agent": UA, Referer: "https://translate.google.com/" } });
     if (!res.ok) throw new HttpError(502, `Google TTS failed (${res.status})`);
     parts.push(new Uint8Array(await res.arrayBuffer()));
@@ -152,18 +155,21 @@ async function lovableTranslate(text: string, sl: string, tl: string) {
   return out.trim();
 }
 
-async function lovableTts(text: string, voice = "Kore") {
+async function lovableTts(text: string, voice = "Kore", speed?: number, options?: Record<string, unknown>) {
+  // Gemini TTS has no numeric speed param; steer pacing with a style instruction.
+  const spoken = speed && speed !== 1 ? `Say this ${speed < 1 ? "slowly" : "quickly"} (about ${speed}x normal pace): ${text}` : text;
   const res = await fetch(`${GATEWAY}/audio/speech`, {
     method: "POST",
     headers: { Authorization: `Bearer ${lovableKey()}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3.1-flash-tts-preview",
-      contents: [{ role: "user", parts: [{ text }] }],
+      contents: [{ role: "user", parts: [{ text: spoken }] }],
       generationConfig: {
         responseModalities: ["AUDIO"],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
       stream_format: "audio",
+      ...options,
     }),
   });
   if (!res.ok) throw new HttpError(res.status, `Lovable TTS failed: ${(await res.text()).slice(0, 300)}`);
@@ -246,19 +252,20 @@ async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?
   );
 }
 
-async function openrouterTts(text: string, voice = "alloy", apiKey?: string) {
+async function openrouterTts(text: string, voice = "alloy", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
   const pcm = await withOpenRouterKey(
     apiKey,
     (k) =>
       orFetch(k, {
         model: "openai/gpt-4o-audio-preview",
         modalities: ["text", "audio"],
-        audio: { voice, format: "pcm16" },
+        audio: { voice, format: "pcm16", ...(speed ? { speed } : {}) },
         stream: true,
         messages: [
           { role: "system", content: "You are a text-to-speech engine. Read the user's text aloud verbatim. Do not add anything." },
           { role: "user", content: text },
         ],
+        ...options,
       }),
     async (r) => {
       const parts: Uint8Array[] = [];
@@ -285,12 +292,12 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     else text = await openrouterTranslate(text, input.lang, target, input.apiKey);
   }
   const lang = target || input.lang;
-  if (input.provider === "google") return { audio: await googleTts(text, lang), mime: "audio/mpeg", text, lang };
+  if (input.provider === "google") return { audio: await googleTts(text, lang, input.speed), mime: "audio/mpeg", text, lang };
   if (input.provider === "lovable") {
-    const r = await lovableTts(text, input.voice);
+    const r = await lovableTts(text, input.voice, input.speed, input.options);
     return { ...r, text, lang };
   }
-  return { audio: await openrouterTts(text, input.voice, input.apiKey), mime: "audio/wav", text, lang };
+  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/wav", text, lang };
 }
 
 export function bytesToB64(b: Uint8Array) {

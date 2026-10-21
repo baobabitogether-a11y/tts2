@@ -4,7 +4,25 @@ const params = {
   target_lang: { type: "string", description: "Optional. If set, text is translated before speaking" },
   provider: { type: "string", enum: ["google", "lovable", "openrouter"], default: "google" },
   api_key: { type: "string", description: "OpenRouter API key (optional if server keys are configured)" },
-  voice: { type: "string", description: "Optional voice (lovable: Kore, Puck...; openrouter: alloy, nova...)" },
+  voice: {
+    type: "string",
+    description:
+      "Voice name. google: ignored (single voice per language). lovable: Gemini voices — Kore (default), Puck, Charon, Fenrir, Aoede, and others. openrouter: OpenAI voices — alloy (default), echo, fable, onyx, nova, shimmer.",
+  },
+  speed: {
+    type: "number",
+    minimum: 0.25,
+    maximum: 4,
+    default: 1,
+    description:
+      "Speech rate multiplier (0.25–4). google: passed as ttsspeed. lovable: applied as a pacing instruction to the model. openrouter: passed as the audio speed parameter.",
+  },
+  options: {
+    type: "object",
+    additionalProperties: true,
+    description:
+      "Advanced: extra provider-specific fields merged into the upstream request body (lovable and openrouter only). For GET requests, pass as a URL-encoded JSON string.",
+  },
   format: { type: "string", enum: ["binary", "json"], default: "binary", description: "binary = raw audio file, json = base64 audio" },
 } as const;
 
