@@ -292,12 +292,12 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     else text = await openrouterTranslate(text, input.lang, target, input.apiKey);
   }
   const lang = target || input.lang;
-  if (input.provider === "google") return { audio: await googleTts(text, lang), mime: "audio/mpeg", text, lang };
+  if (input.provider === "google") return { audio: await googleTts(text, lang, input.speed), mime: "audio/mpeg", text, lang };
   if (input.provider === "lovable") {
-    const r = await lovableTts(text, input.voice);
+    const r = await lovableTts(text, input.voice, input.speed, input.options);
     return { ...r, text, lang };
   }
-  return { audio: await openrouterTts(text, input.voice, input.apiKey), mime: "audio/wav", text, lang };
+  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/wav", text, lang };
 }
 
 export function bytesToB64(b: Uint8Array) {
