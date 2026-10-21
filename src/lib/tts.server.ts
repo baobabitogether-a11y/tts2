@@ -155,18 +155,21 @@ async function lovableTranslate(text: string, sl: string, tl: string) {
   return out.trim();
 }
 
-async function lovableTts(text: string, voice = "Kore") {
+async function lovableTts(text: string, voice = "Kore", speed?: number, options?: Record<string, unknown>) {
+  // Gemini TTS has no numeric speed param; steer pacing with a style instruction.
+  const spoken = speed && speed !== 1 ? `Say this ${speed < 1 ? "slowly" : "quickly"} (about ${speed}x normal pace): ${text}` : text;
   const res = await fetch(`${GATEWAY}/audio/speech`, {
     method: "POST",
     headers: { Authorization: `Bearer ${lovableKey()}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3.1-flash-tts-preview",
-      contents: [{ role: "user", parts: [{ text }] }],
+      contents: [{ role: "user", parts: [{ text: spoken }] }],
       generationConfig: {
         responseModalities: ["AUDIO"],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
       stream_format: "audio",
+      ...options,
     }),
   });
   if (!res.ok) throw new HttpError(res.status, `Lovable TTS failed: ${(await res.text()).slice(0, 300)}`);
@@ -249,19 +252,20 @@ async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?
   );
 }
 
-async function openrouterTts(text: string, voice = "alloy", apiKey?: string) {
+async function openrouterTts(text: string, voice = "alloy", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
   const pcm = await withOpenRouterKey(
     apiKey,
     (k) =>
       orFetch(k, {
         model: "openai/gpt-4o-audio-preview",
         modalities: ["text", "audio"],
-        audio: { voice, format: "pcm16" },
+        audio: { voice, format: "pcm16", ...(speed ? { speed } : {}) },
         stream: true,
         messages: [
           { role: "system", content: "You are a text-to-speech engine. Read the user's text aloud verbatim. Do not add anything." },
           { role: "user", content: text },
         ],
+        ...options,
       }),
     async (r) => {
       const parts: Uint8Array[] = [];
