@@ -7,6 +7,8 @@ export type TtsInput = {
   provider: Provider;
   apiKey?: string | undefined;
   voice?: string | undefined;
+  speed?: number | undefined;
+  options?: Record<string, unknown> | undefined;
 };
 export type TtsResult = { audio: Uint8Array; mime: string; text: string; lang: string };
 
@@ -100,12 +102,13 @@ async function googleTranslate(text: string, sl: string, tl: string) {
   return data[0].map((s) => s[0]).join("");
 }
 
-async function googleTts(text: string, lang: string) {
+async function googleTts(text: string, lang: string, speed?: number) {
   const parts: Uint8Array[] = [];
   const chunks = chunkText(text);
+  const speedParam = speed ? `&ttsspeed=${speed}` : "";
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i] ?? "";
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}`;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}${speedParam}`;
     const res = await fetch(url, { headers: { "User-Agent": UA, Referer: "https://translate.google.com/" } });
     if (!res.ok) throw new HttpError(502, `Google TTS failed (${res.status})`);
     parts.push(new Uint8Array(await res.arrayBuffer()));
