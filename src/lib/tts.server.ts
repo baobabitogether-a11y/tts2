@@ -39,25 +39,6 @@ function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-function pcmToWav(pcm: Uint8Array, sampleRate = 24000): Uint8Array {
-  const h = new DataView(new ArrayBuffer(44));
-  const w = (o: number, s: string) => [...s].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
-  w(0, "RIFF");
-  h.setUint32(4, 36 + pcm.length, true);
-  w(8, "WAVE");
-  w(12, "fmt ");
-  h.setUint32(16, 16, true);
-  h.setUint16(20, 1, true);
-  h.setUint16(22, 1, true);
-  h.setUint32(24, sampleRate, true);
-  h.setUint32(28, sampleRate * 2, true);
-  h.setUint16(32, 2, true);
-  h.setUint16(34, 16, true);
-  w(36, "data");
-  h.setUint32(40, pcm.length, true);
-  return concat([new Uint8Array(h.buffer), pcm]);
-}
-
 // Reads an SSE body, calling onData for every `data:` payload.
 async function readSse(res: Response, onData: (data: string) => void) {
   const reader = res.body!.getReader();
@@ -252,34 +233,18 @@ async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?
   );
 }
 
-async function openrouterTts(text: string, voice = "alloy", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
-  const pcm = await withOpenRouterKey(
+async function openrouterTts(text: string, voice = "b347db033a6549378b48d00acb0d06cd", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
+  const model = typeof options?.["model"] === "string" ? options["model"] : "fish-audio/s2.1-pro-free:free";
+  return withOpenRouterKey(
     apiKey,
     (k) =>
-      orFetch(k, {
-        model: "openai/gpt-4o-audio-preview",
-        modalities: ["text", "audio"],
-        audio: { voice, format: "pcm16", ...(speed ? { speed } : {}) },
-        stream: true,
-        messages: [
-          { role: "system", content: "You are a text-to-speech engine. Read the user's text aloud verbatim. Do not add anything." },
-          { role: "user", content: text },
-        ],
-        ...options,
+      fetch("https://openrouter.ai/api/v1/audio/speech", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...options, input: text, model, response_format: "mp3", speed: speed ?? 1, voice }),
       }),
-    async (r) => {
-      const parts: Uint8Array[] = [];
-      await readSse(r, (d) => {
-        try {
-          const a = JSON.parse(d).choices?.[0]?.delta?.audio?.data;
-          if (a) parts.push(b64ToBytes(a));
-        } catch {}
-      });
-      if (!parts.length) throw new HttpError(502, "OpenRouter returned no audio");
-      return concat(parts);
-    },
+    async (r) => new Uint8Array(await r.arrayBuffer()),
   );
-  return pcmToWav(pcm);
 }
 
 // ---------------- Entry ----------------
@@ -297,7 +262,7 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     const r = await lovableTts(text, input.voice, input.speed, input.options);
     return { ...r, text, lang };
   }
-  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/wav", text, lang };
+  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/mpeg", text, lang };
 }
 
 export function bytesToB64(b: Uint8Array) {

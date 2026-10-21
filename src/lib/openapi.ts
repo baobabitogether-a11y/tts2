@@ -7,7 +7,7 @@ const params = {
   voice: {
     type: "string",
     description:
-      "Voice name. google: ignored (single voice per language). lovable: Gemini voices — Kore (default), Puck, Charon, Fenrir, Aoede, and others. openrouter: OpenAI voices — alloy (default), echo, fable, onyx, nova, shimmer.",
+      "Voice name. google: ignored (single voice per language). lovable: Gemini voices — Kore (default), Puck, Charon, Fenrir, Aoede, and others. openrouter: provider-specific voice ID; Fish Audio defaults to b347db033a6549378b48d00acb0d06cd.",
   },
   speed: {
     type: "number",
@@ -20,8 +20,15 @@ const params = {
   options: {
     type: "object",
     additionalProperties: true,
+    properties: {
+      model: {
+        type: "string",
+        default: "fish-audio/s2.1-pro-free:free",
+        description: "OpenRouter TTS model. Defaults to Fish Audio S2.1 Pro Free.",
+      },
+    },
     description:
-      "Advanced: extra provider-specific fields merged into the upstream request body (lovable and openrouter only). For GET requests, pass as a URL-encoded JSON string.",
+      "Provider-specific fields (lovable and openrouter). OpenRouter defaults to Fish Audio S2.1 Pro Free and returns MP3 audio. For GET requests, pass as a URL-encoded JSON string.",
   },
   format: { type: "string", enum: ["binary", "json"], default: "binary", description: "binary = raw audio file, json = base64 audio" },
 } as const;

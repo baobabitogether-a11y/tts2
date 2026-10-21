@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openApiSpec } from "@/lib/openapi";
 
 export const Route = createFileRoute("/")({
@@ -19,11 +19,31 @@ export const Route = createFileRoute("/")({
 const field = "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
 
 function Index() {
-  const [form, setForm] = useState({ text: "Hello world", lang: "en", target_lang: "", provider: "google", api_key: "", voice: "", speed: "1", options: "" });
+  const [form, setForm] = useState({ text: "The warm light flows across the OpenRouter office as the evening settles in and the routing never stops. One interface, hundreds of models. Ready when you are.", lang: "en", target_lang: "", provider: "google", api_key: "", voice: "", model: "fish-audio/s2.1-pro-free:free", speed: "1", options: "" });
+  const [models, setModels] = useState<Array<{ slug: string; short_name?: string; name?: string }>>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
   const [audio, setAudio] = useState<string | null>(null);
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k: string) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+
+  useEffect(() => {
+    fetch("https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards&input_modalities=text&output_modalities=audio")
+      .then((res) => {
+        if (!res.ok) throw new Error(`OpenRouter returned ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const listed = (data.data?.models ?? []) as Array<{ slug: string; short_name?: string; name?: string }>;
+        const available = [
+          { slug: "fish-audio/s2.1-pro-free:free", short_name: "Fish Audio S2.1 Pro Free" },
+          ...listed.filter((model) => model.slug !== "fish-audio/s2.1-pro-free:free"),
+        ];
+        setModels(available);
+      })
+      .catch(() => setInfo("Could not load OpenRouter models"))
+      .finally(() => setModelsLoading(false));
+  }, []);
 
   async function run() {
     setBusy(true);
@@ -46,7 +66,9 @@ function Index() {
         ...(form.api_key && { api_key: form.api_key }),
         ...(form.voice && { voice: form.voice }),
         ...(Number(form.speed) !== 1 && { speed: Number(form.speed) }),
-        ...(options && { options }),
+        ...((options || (form.provider === "openrouter" && form.model)) && {
+          options: { ...options, ...(form.provider === "openrouter" && form.model ? { model: form.model } : {}) },
+        }),
       };
       const res = await fetch("/api/public/tts", {
         method: "POST",
@@ -72,6 +94,22 @@ function Index() {
       </p>
 
       <section className="mt-10 space-y-3">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="border border-border px-3 py-2 text-sm hover:bg-muted"
+            onClick={() => setForm({ ...form, text: "Bonjour, comment allez-vous aujourd'hui ? La lumière du soir est magnifique.", lang: "fr", target_lang: "" })}
+          >
+            French
+          </button>
+          <button
+            type="button"
+            className="border border-border px-3 py-2 text-sm hover:bg-muted"
+            onClick={() => setForm({ ...form, text: "Ciao, come stai oggi? La luce della sera è bellissima.", lang: "it", target_lang: "" })}
+          >
+            Italian
+          </button>
+        </div>
         <textarea className={field} rows={3} value={form.text} onChange={set("text")} />
         <div className="grid grid-cols-3 gap-3">
           <input className={field} placeholder="lang" value={form.lang} onChange={set("lang")} />
@@ -88,6 +126,14 @@ function Index() {
             <input className={field} type="password" placeholder="api_key (optional)" value={form.api_key} onChange={set("api_key")} />
           )}
         </div>
+        {form.provider === "openrouter" && (
+          <select className={field} value={form.model} onChange={set("model")} disabled={modelsLoading || models.length === 0}>
+            <option value="">{modelsLoading ? "Loading models…" : "No models available"}</option>
+            {models.map((model) => (
+              <option key={model.slug} value={model.slug}>{model.short_name || model.name || model.slug}</option>
+            ))}
+          </select>
+        )}
         <label className="block text-xs text-muted-foreground">
           speed: {form.speed}x
           <input className="w-full accent-foreground" type="range" min="0.25" max="4" step="0.25" value={form.speed} onChange={set("speed")} />
