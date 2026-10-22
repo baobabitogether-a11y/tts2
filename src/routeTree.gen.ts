@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as OpenrouterRouteImport } from './routes/openrouter'
 import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
+import { Route as ApiPublicOpenrouterKeysRouteImport } from './routes/api/public/openrouter-keys'
 import { Route as ApiPublicTtsRouteImport } from './routes/api/public/tts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,9 +32,19 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OpenrouterRoute = OpenrouterRouteImport.update({
+  id: '/openrouter',
+  path: '/openrouter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicOpenapiDotjsonRoute = ApiPublicOpenapiDotjsonRouteImport.update({
   id: '/api/public/openapi.json',
   path: '/api/public/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOpenrouterKeysRoute = ApiPublicOpenrouterKeysRouteImport.update({
+  id: '/api/public/openrouter-keys',
+  path: '/api/public/openrouter-keys',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicTtsRoute = ApiPublicTtsRouteImport.update({
@@ -45,14 +57,18 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
+  '/openrouter': typeof OpenrouterRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
+  '/openrouter': typeof OpenrouterRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRoutesById {
@@ -60,7 +76,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
+  '/openrouter': typeof OpenrouterRoute
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
+  '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
 }
 export interface FileRouteTypes {
@@ -69,21 +87,27 @@ export interface FileRouteTypes {
     | '/'
     | '/health'
     | '/history'
+    | '/openrouter'
     | '/api/public/openapi.json'
+    | '/api/public/openrouter-keys'
     | '/api/public/tts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/health'
     | '/history'
+    | '/openrouter'
     | '/api/public/openapi.json'
+    | '/api/public/openrouter-keys'
     | '/api/public/tts'
   id:
     | '__root__'
     | '/'
     | '/health'
     | '/history'
+    | '/openrouter'
     | '/api/public/openapi.json'
+    | '/api/public/openrouter-keys'
     | '/api/public/tts'
   fileRoutesById: FileRoutesById
 }
@@ -91,7 +115,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HealthRoute: typeof HealthRoute
   HistoryRoute: typeof HistoryRoute
+  OpenrouterRoute: typeof OpenrouterRoute
   ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
+  ApiPublicOpenrouterKeysRoute: typeof ApiPublicOpenrouterKeysRoute
   ApiPublicTtsRoute: typeof ApiPublicTtsRoute
 }
 
@@ -118,11 +144,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/openrouter': {
+      id: '/openrouter'
+      path: '/openrouter'
+      fullPath: '/openrouter'
+      preLoaderRoute: typeof OpenrouterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/openapi.json': {
       id: '/api/public/openapi.json'
       path: '/api/public/openapi.json'
       fullPath: '/api/public/openapi.json'
       preLoaderRoute: typeof ApiPublicOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/openrouter-keys': {
+      id: '/api/public/openrouter-keys'
+      path: '/api/public/openrouter-keys'
+      fullPath: '/api/public/openrouter-keys'
+      preLoaderRoute: typeof ApiPublicOpenrouterKeysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/tts': {
@@ -139,7 +179,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HealthRoute: HealthRoute,
   HistoryRoute: HistoryRoute,
+  OpenrouterRoute: OpenrouterRoute,
   ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
+  ApiPublicOpenrouterKeysRoute: ApiPublicOpenrouterKeysRoute,
   ApiPublicTtsRoute: ApiPublicTtsRoute,
 }
 export const routeTree = rootRouteImport

@@ -157,33 +157,98 @@ async function lovableTts(text: string, voice = "Kore", speed?: number, options?
   return { audio: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get("content-type") || "audio/wav" };
 }
 
-// ---------------- OpenRouter ----------------
-// Shared, in-memory key order for round-robin. Blocked keys move to the end.
-let keyOrder: string[] | null = null;
-function configuredKeys(): string[] {
-  const raw = process.env['OPENROUTER_API_KEYS'] || "";
-  const fresh = raw.split(/[\s,]+/).filter(Boolean);
-  if (!keyOrder || keyOrder.length !== fresh.length || fresh.some((k) => !keyOrder!.includes(k))) keyOrder = fresh;
-  return keyOrder;
-}
+// ---------------- OpenRouter key pool ----------------
+// Pool = keys from OPENROUTER_API_KEYS env + keys added at runtime (in memory).
+// Round-robin: each request starts at the next key. Failed keys are retried on the
+// next one; after QUARANTINE_AFTER consecutive failures a key is benched for QUARANTINE_MS.
+export const QUARANTINE_AFTER = 10;
+export const QUARANTINE_MS = 15 * 60 * 1000;
+const runtimeKeys: string[] = [];
+let rrIndex = 0;
 export const startedAt = Date.now();
-export type KeyStatus = { status: "unknown" | "ok" | "blocked" | "error"; code?: number; lastUsed?: number; lastError?: string };
+export type KeyStatus = {
+  status: "unknown" | "ok" | "blocked" | "error" | "quarantined";
+  code?: number;
+  lastUsed?: number;
+  lastError?: string;
+  failures?: number;
+  quarantinedUntil?: number;
+};
 export const keyStatus = new Map<string, KeyStatus>();
+
+function envKeys(): string[] {
+  return (process.env["OPENROUTER_API_KEYS"] || "").split(/[\s,]+/).filter(Boolean);
+}
 export function getOpenRouterKeys() {
-  return [...configuredKeys()];
+  return [...new Set([...envKeys(), ...runtimeKeys])];
+}
+export function listKeys() {
+  const env = new Set(envKeys());
+  return getOpenRouterKeys().map((k) => {
+    const s = keyStatus.get(k) ?? { status: "unknown" as const };
+    const q = s.quarantinedUntil && s.quarantinedUntil > Date.now();
+    return { id: keyId(k), key: redact(k), source: env.has(k) ? "env" : "runtime", ...s, status: q ? "quarantined" : s.status };
+  });
+}
+export function keyId(k: string) {
+  let h = 0;
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+export function addKey(k: string) {
+  const key = k.trim();
+  if (!key) return false;
+  if (getOpenRouterKeys().includes(key)) return false;
+  runtimeKeys.push(key);
+  return true;
+}
+export function removeKey(id: string): "ok" | "env" | "missing" {
+  const i = runtimeKeys.findIndex((k) => keyId(k) === id);
+  if (i >= 0) {
+    keyStatus.delete(runtimeKeys[i]!);
+    runtimeKeys.splice(i, 1);
+    return "ok";
+  }
+  return envKeys().some((k) => keyId(k) === id) ? "env" : "missing";
+}
+export function resetKey(id: string) {
+  const k = getOpenRouterKeys().find((x) => keyId(x) === id);
+  if (!k) return false;
+  keyStatus.delete(k);
+  return true;
 }
 export function redact(k: string) {
   return k.length <= 10 ? "***" : `${k.slice(0, 6)}…${k.slice(-4)}`;
 }
+const BLOCKED = new Set([401, 402, 403, 429]);
 function mark(key: string, code: number, err?: string) {
-  keyStatus.set(key, {
-    status: code < 300 ? "ok" : BLOCKED.has(code) ? "blocked" : "error",
+  const prev = keyStatus.get(key);
+  const ok = code < 300;
+  const failures = ok ? 0 : (prev?.failures ?? 0) + 1;
+  const s: KeyStatus = {
+    status: ok ? "ok" : BLOCKED.has(code) ? "blocked" : "error",
     code,
     lastUsed: Date.now(),
+    failures,
     ...(err ? { lastError: err.slice(0, 200) } : {}),
-  });
+  };
+  if (failures >= QUARANTINE_AFTER) {
+    s.status = "quarantined";
+    s.quarantinedUntil = Date.now() + QUARANTINE_MS;
+  }
+  keyStatus.set(key, s);
 }
-const BLOCKED = new Set([401, 402, 403, 429]);
+function available(): string[] {
+  const now = Date.now();
+  const all = getOpenRouterKeys();
+  const live = all.filter((k) => {
+    const q = keyStatus.get(k)?.quarantinedUntil;
+    return !q || q <= now;
+  });
+  if (!live.length) return [];
+  const start = rrIndex++ % live.length;
+  return [...live.slice(start), ...live.slice(0, start)];
+}
 
 async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>): Promise<T> {
   const suppliedKey = apiKey?.trim();
@@ -192,22 +257,26 @@ async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string
     if (!r.ok) throw new HttpError(r.status, `OpenRouter error: ${(await r.text()).slice(0, 300)}`);
     return parse(r);
   }
-  const keys = configuredKeys();
-  if (!keys.length) throw new HttpError(400, "No OpenRouter api_key provided and OPENROUTER_API_KEYS is not configured");
+  if (!getOpenRouterKeys().length) throw new HttpError(400, "No OpenRouter api_key provided and no server keys configured (add some at /openrouter)");
+  const keys = available();
+  if (!keys.length) throw new HttpError(503, "All server OpenRouter keys are quarantined");
   let lastErr = "";
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    const key = keys[0]!;
-    const r = await fn(key);
+  for (const key of keys) {
+    let r: Response;
+    try {
+      r = await fn(key);
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : "network error";
+      mark(key, 599, lastErr);
+      continue;
+    }
     if (r.ok) {
       mark(key, r.status);
       return parse(r);
     }
     lastErr = `${r.status} ${(await r.text()).slice(0, 200)}`;
     mark(key, r.status, lastErr);
-    if (BLOCKED.has(r.status) || r.status >= 500) {
-      keys.push(keys.shift()!); // move blocked key to end, continue probing
-      continue;
-    }
+    if (BLOCKED.has(r.status) || r.status >= 500) continue;
     throw new HttpError(r.status, `OpenRouter error: ${lastErr}`);
   }
   throw new HttpError(503, `All OpenRouter keys failed. Last: ${lastErr}`);
