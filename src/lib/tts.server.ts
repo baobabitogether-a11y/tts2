@@ -261,6 +261,7 @@ async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string
   const keys = available();
   if (!keys.length) throw new HttpError(503, "All server OpenRouter keys are quarantined");
   let lastErr = "";
+  let lastStatus = 503;
   for (const key of keys) {
     let r: Response;
     try {
@@ -276,10 +277,11 @@ async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string
     }
     lastErr = `${r.status} ${(await r.text()).slice(0, 200)}`;
     mark(key, r.status, lastErr);
+    lastStatus = r.status;
     if (BLOCKED.has(r.status) || r.status >= 500) continue;
     throw new HttpError(r.status, `OpenRouter error: ${lastErr}`);
   }
-  throw new HttpError(503, `All OpenRouter keys failed. Last: ${lastErr}`);
+  throw new HttpError(lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502, `All OpenRouter keys failed. Last: ${lastErr}`);
 }
 
 function orFetch(key: string, body: unknown) {
