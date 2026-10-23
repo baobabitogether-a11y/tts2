@@ -1,0 +1,3 @@
+- [ ] Add multilingual Fish Audio request handling and client language choices.
+- [ ] Persist OpenRouter keys, failure status, quarantine and rotation in Cloud.
+- [ ] Secure key management and verify persistence and synthesis.
