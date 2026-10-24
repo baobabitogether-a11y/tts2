@@ -1,6 +1,6 @@
 const params = {
   text: { type: "string", description: "Text to speak (max 5000 chars)" },
-  lang: { type: "string", description: "Source language code, e.g. en", example: "en" },
+  lang: { type: "string", description: "Source language code, e.g. en, fr, it, he. Fish Audio speaks multilingual input and receives this language (or target_lang after translation) as its language hint.", example: "en" },
   target_lang: { type: "string", description: "Optional. If set, text is translated before speaking" },
   provider: { type: "string", enum: ["google", "lovable", "openrouter"], default: "google" },
   api_key: { type: "string", description: "OpenRouter API key (optional if server keys are configured)" },

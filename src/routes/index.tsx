@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { openApiSpec } from "@/lib/openapi";
+import { speechLanguages } from '@/lib/fish-audio';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -112,8 +113,9 @@ function Index() {
         </div>
         <textarea className={field} rows={3} value={form.text} onChange={set("text")} />
         <div className="grid grid-cols-3 gap-3">
-          <input className={field} placeholder="lang" value={form.lang} onChange={set("lang")} />
-          <input className={field} placeholder="target_lang" value={form.target_lang} onChange={set("target_lang")} />
+          <input aria-label="Source language" list="speech-languages" className={field} placeholder="lang" value={form.lang} onChange={set("lang")} />
+          <input aria-label="Target language" list="speech-languages" className={field} placeholder="target_lang" value={form.target_lang} onChange={set("target_lang")} />
+          <datalist id="speech-languages">{speechLanguages.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</datalist>
           <select className={field} value={form.provider} onChange={set("provider")}>
             <option>google</option>
             <option>lovable</option>

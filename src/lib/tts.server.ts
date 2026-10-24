@@ -1,4 +1,5 @@
 // Server-only TTS + translation providers.
+import { speechBody } from './fish-audio';
 export type Provider = "google" | "lovable" | "openrouter";
 export type TtsInput = {
   text: string;
@@ -217,15 +218,14 @@ async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?
   );
 }
 
-async function openrouterTts(text: string, voice = "b347db033a6549378b48d00acb0d06cd", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
-  const model = typeof options?.["model"] === "string" ? options["model"] : "fish-audio/s2.1-pro-free:free";
+async function openrouterTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>) {
   return withOpenRouterKey(
     apiKey,
     (k) =>
       fetch("https://openrouter.ai/api/v1/audio/speech", {
         method: "POST",
         headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...options, input: text, model, response_format: "mp3", speed: speed ?? 1, voice }),
+        body: JSON.stringify(speechBody(text, lang, voice, speed, options)),
       }),
     async (r) => new Uint8Array(await r.arrayBuffer()),
   );
@@ -246,7 +246,7 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     const r = await lovableTts(text, input.voice, input.speed, input.options);
     return { ...r, text, lang };
   }
-  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/mpeg", text, lang };
+  return { audio: await openrouterTts(text, lang, input.voice, input.apiKey, input.speed, input.options), mime: "audio/mpeg", text, lang };
 }
 
 export function bytesToB64(b: Uint8Array) {
