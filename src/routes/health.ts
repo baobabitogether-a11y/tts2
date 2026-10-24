@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { startedAt, keyStatus, getOpenRouterKeys, redact } from "@/lib/tts.server";
-import { cacheInfo, history } from "@/lib/monitor.server";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Allow-Headers": "*" };
 
@@ -20,14 +18,16 @@ export const Route = createFileRoute("/health")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
       GET: async () => {
+        const { startedAt } = await import('@/lib/tts.server');
+        const { cacheInfo, history } = await import('@/lib/monitor.server');
+        const { poolRows, publicKey, decryptKey } = await import('@/lib/openrouter-pool.server');
         const up = Math.floor((Date.now() - startedAt) / 1000);
-        const keys = getOpenRouterKeys();
+        const keys = await poolRows();
         const openrouter = await Promise.all(
           keys.map(async (k, i) => ({
             position: i,
-            key: redact(k),
-            ...(keyStatus.get(k) ?? { status: "unknown" }),
-            credits: await credits(k),
+            ...publicKey(k),
+            credits: await credits(await decryptKey(k)),
           })),
         );
         return Response.json(

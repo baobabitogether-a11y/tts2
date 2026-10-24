@@ -1,32 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { listKeys, addKey, removeKey, resetKey, QUARANTINE_AFTER, QUARANTINE_MS } from "@/lib/tts.server";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "*" };
-const list = () => Response.json({ keys: listKeys(), quarantine_after: QUARANTINE_AFTER, quarantine_minutes: QUARANTINE_MS / 60000 }, { headers: CORS });
+async function handle(request: Request) {
+  const pool = await import('@/lib/openrouter-pool.server');
+  if (!await pool.authorizeManagement(request)) return Response.json({ error: 'Enter your management token or configured server OpenRouter key' }, { status: 401, headers: CORS });
+  try {
+    if (request.method === 'POST') {
+      const body = await request.json() as { key?: unknown; reset?: unknown };
+      if (typeof body.reset === 'string') {
+        if (!await pool.resetKey(body.reset)) return Response.json({ error: 'Key not found' }, { status: 404, headers: CORS });
+      } else {
+        if (typeof body.key !== 'string' || !body.key.trim() || body.key.length > 500) return Response.json({ error: 'key is required' }, { status: 400, headers: CORS });
+        if (!await pool.addKey(body.key)) return Response.json({ error: 'Key already exists' }, { status: 409, headers: CORS });
+      }
+    }
+    if (request.method === 'DELETE' && !await pool.removeKey(new URL(request.url).searchParams.get('id') || '')) return Response.json({ error: 'Key not found or managed in server secrets' }, { status: 400, headers: CORS });
+    return Response.json({ keys: await pool.listKeys(), quarantine_after: pool.QUARANTINE_AFTER, quarantine_minutes: pool.QUARANTINE_MS / 60000 }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+  } catch {
+    return Response.json({ error: 'Could not update saved keys' }, { status: 500, headers: CORS });
+  }
+}
 
 export const Route = createFileRoute("/api/public/openrouter-keys")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
-      GET: async () => list(),
-      POST: async ({ request }) => {
-        const body = (await request.json().catch(() => ({}))) as { key?: unknown; reset?: unknown };
-        if (typeof body.reset === "string") {
-          if (!resetKey(body.reset)) return Response.json({ error: "Key not found" }, { status: 404, headers: CORS });
-          return list();
-        }
-        if (typeof body.key !== "string" || body.key.length > 500 || !body.key.trim())
-          return Response.json({ error: "key is required" }, { status: 400, headers: CORS });
-        if (!addKey(body.key)) return Response.json({ error: "Key already exists" }, { status: 409, headers: CORS });
-        return list();
-      },
-      DELETE: async ({ request }) => {
-        const id = new URL(request.url).searchParams.get("id") ?? "";
-        const r = removeKey(id);
-        if (r === "env") return Response.json({ error: "This key comes from server settings and can't be removed here" }, { status: 400, headers: CORS });
-        if (r === "missing") return Response.json({ error: "Key not found" }, { status: 404, headers: CORS });
-        return list();
-      },
+      GET: async ({ request }) => handle(request),
+      POST: async ({ request }) => handle(request),
+      DELETE: async ({ request }) => handle(request),
     },
   },
 });

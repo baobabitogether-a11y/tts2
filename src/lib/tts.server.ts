@@ -1,4 +1,5 @@
 // Server-only TTS + translation providers.
+import { speechBody } from './fish-audio';
 export type Provider = "google" | "lovable" | "openrouter";
 export type TtsInput = {
   text: string;
@@ -41,7 +42,8 @@ function b64ToBytes(b64: string): Uint8Array {
 
 // Reads an SSE body, calling onData for every `data:` payload.
 async function readSse(res: Response, onData: (data: string) => void) {
-  const reader = res.body!.getReader();
+  if (!res.body) throw new HttpError(502, "Empty streaming response");
+  const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
   for (;;) {
@@ -157,131 +159,42 @@ async function lovableTts(text: string, voice = "Kore", speed?: number, options?
   return { audio: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get("content-type") || "audio/wav" };
 }
 
-// ---------------- OpenRouter key pool ----------------
-// Pool = keys from OPENROUTER_API_KEYS env + keys added at runtime (in memory).
-// Round-robin: each request starts at the next key. Failed keys are retried on the
-// next one; after QUARANTINE_AFTER consecutive failures a key is benched for QUARANTINE_MS.
-export const QUARANTINE_AFTER = 10;
-export const QUARANTINE_MS = 15 * 60 * 1000;
-const runtimeKeys: string[] = [];
-let rrIndex = 0;
+// ---------------- Persistent OpenRouter key pool ----------------
+import { availableKeys, decryptKey, markKey } from './openrouter-pool.server';
 export const startedAt = Date.now();
-export type KeyStatus = {
-  status: "unknown" | "ok" | "blocked" | "error" | "quarantined";
-  code?: number;
-  lastUsed?: number;
-  lastError?: string;
-  failures?: number;
-  quarantinedUntil?: number;
-};
-export const keyStatus = new Map<string, KeyStatus>();
-
-function envKeys(): string[] {
-  return (process.env["OPENROUTER_API_KEYS"] || "").split(/[\s,]+/).filter(Boolean);
-}
-export function getOpenRouterKeys() {
-  return [...new Set([...envKeys(), ...runtimeKeys])];
-}
-export function listKeys() {
-  const env = new Set(envKeys());
-  return getOpenRouterKeys().map((k) => {
-    const s = keyStatus.get(k) ?? { status: "unknown" as const };
-    const q = s.quarantinedUntil && s.quarantinedUntil > Date.now();
-    return { id: keyId(k), key: redact(k), source: env.has(k) ? "env" : "runtime", ...s, status: q ? "quarantined" : s.status };
-  });
-}
-export function keyId(k: string) {
-  let h = 0;
-  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
-export function addKey(k: string) {
-  const key = k.trim();
-  if (!key) return false;
-  if (getOpenRouterKeys().includes(key)) return false;
-  runtimeKeys.push(key);
-  return true;
-}
-export function removeKey(id: string): "ok" | "env" | "missing" {
-  const i = runtimeKeys.findIndex((k) => keyId(k) === id);
-  if (i >= 0) {
-    keyStatus.delete(runtimeKeys[i]!);
-    runtimeKeys.splice(i, 1);
-    return "ok";
-  }
-  return envKeys().some((k) => keyId(k) === id) ? "env" : "missing";
-}
-export function resetKey(id: string) {
-  const k = getOpenRouterKeys().find((x) => keyId(x) === id);
-  if (!k) return false;
-  keyStatus.delete(k);
-  return true;
-}
-export function redact(k: string) {
-  return k.length <= 10 ? "***" : `${k.slice(0, 6)}…${k.slice(-4)}`;
-}
 const BLOCKED = new Set([401, 402, 403, 429]);
-function mark(key: string, code: number, err?: string) {
-  const prev = keyStatus.get(key);
-  const ok = code < 300;
-  const failures = ok ? 0 : (prev?.failures ?? 0) + 1;
-  const s: KeyStatus = {
-    status: ok ? "ok" : BLOCKED.has(code) ? "blocked" : "error",
-    code,
-    lastUsed: Date.now(),
-    failures,
-    ...(err ? { lastError: err.slice(0, 200) } : {}),
-  };
-  if (failures >= QUARANTINE_AFTER) {
-    s.status = "quarantined";
-    s.quarantinedUntil = Date.now() + QUARANTINE_MS;
-  }
-  keyStatus.set(key, s);
-}
-function available(): string[] {
-  const now = Date.now();
-  const all = getOpenRouterKeys();
-  const live = all.filter((k) => {
-    const q = keyStatus.get(k)?.quarantinedUntil;
-    return !q || q <= now;
-  });
-  if (!live.length) return [];
-  const start = rrIndex++ % live.length;
-  return [...live.slice(start), ...live.slice(0, start)];
-}
 
 async function withOpenRouterKey<T>(apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>): Promise<T> {
-  const suppliedKey = apiKey?.trim();
-  if (suppliedKey) {
-    const r = await fn(suppliedKey);
-    if (!r.ok) throw new HttpError(r.status, `OpenRouter error: ${(await r.text()).slice(0, 300)}`);
-    return parse(r);
+  const supplied = apiKey?.trim();
+  if (supplied) {
+    const response = await fn(supplied);
+    if (!response.ok) throw new HttpError(response.status, `OpenRouter rejected the request (HTTP ${response.status})`);
+    return parse(response);
   }
-  if (!getOpenRouterKeys().length) throw new HttpError(400, "No OpenRouter api_key provided and no server keys configured (add some at /openrouter)");
-  const keys = available();
-  if (!keys.length) throw new HttpError(503, "All server OpenRouter keys are quarantined");
-  let lastErr = "";
+  const { all, live } = await availableKeys();
+  if (!all.length) throw new HttpError(400, 'No server OpenRouter keys configured; add a key at /openrouter');
+  if (!live.length) throw new HttpError(503, 'All server OpenRouter keys are quarantined');
   let lastStatus = 503;
-  for (const key of keys) {
-    let r: Response;
+  for (const row of live) {
+    let response: Response;
     try {
-      r = await fn(key);
-    } catch (e) {
-      lastErr = e instanceof Error ? e.message : "network error";
-      mark(key, 599, lastErr);
+      response = await fn(await decryptKey(row));
+    } catch {
+      await markKey(row.id, 599);
       continue;
     }
-    if (r.ok) {
-      mark(key, r.status);
-      return parse(r);
+    if (response.ok) {
+      const result = await parse(response);
+      await markKey(row.id, response.status);
+      return result;
     }
-    lastErr = `${r.status} ${(await r.text()).slice(0, 200)}`;
-    mark(key, r.status, lastErr);
-    lastStatus = r.status;
-    if (BLOCKED.has(r.status) || r.status >= 500) continue;
-    throw new HttpError(r.status, `OpenRouter error: ${lastErr}`);
+    lastStatus = response.status;
+    await response.body?.cancel();
+    await markKey(row.id, response.status);
+    if (BLOCKED.has(response.status) || response.status >= 500) continue;
+    throw new HttpError(response.status, `OpenRouter rejected the request (HTTP ${response.status})`);
   }
-  throw new HttpError(lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502, `All OpenRouter keys failed. Last: ${lastErr}`);
+  throw new HttpError(lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502, `All OpenRouter keys failed (HTTP ${lastStatus})`);
 }
 
 function orFetch(key: string, body: unknown) {
@@ -305,15 +218,14 @@ async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?
   );
 }
 
-async function openrouterTts(text: string, voice = "b347db033a6549378b48d00acb0d06cd", apiKey?: string, speed?: number, options?: Record<string, unknown>) {
-  const model = typeof options?.["model"] === "string" ? options["model"] : "fish-audio/s2.1-pro-free:free";
+async function openrouterTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>) {
   return withOpenRouterKey(
     apiKey,
     (k) =>
       fetch("https://openrouter.ai/api/v1/audio/speech", {
         method: "POST",
         headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...options, input: text, model, response_format: "mp3", speed: speed ?? 1, voice }),
+        body: JSON.stringify(speechBody(text, lang, voice, speed, options)),
       }),
     async (r) => new Uint8Array(await r.arrayBuffer()),
   );
@@ -334,7 +246,7 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     const r = await lovableTts(text, input.voice, input.speed, input.options);
     return { ...r, text, lang };
   }
-  return { audio: await openrouterTts(text, input.voice, input.apiKey, input.speed, input.options), mime: "audio/mpeg", text, lang };
+  return { audio: await openrouterTts(text, lang, input.voice, input.apiKey, input.speed, input.options), mime: "audio/mpeg", text, lang };
 }
 
 export function bytesToB64(b: Uint8Array) {

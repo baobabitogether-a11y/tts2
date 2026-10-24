@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Button } from '@/components/ui/button';
 
 export const Route = createFileRoute("/openrouter")({
   head: () => ({
@@ -23,18 +24,16 @@ function Keys() {
   const [meta, setMeta] = useState({ after: 10, mins: 15 });
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
+  const [token, setToken] = useState('');
 
   async function call(init?: RequestInit, url = API) {
     setErr("");
-    const r = await fetch(url, init);
+    const r = await fetch(url, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
     const j = await r.json();
     if (!r.ok) return setErr(j.error ?? "Request failed");
     setKeys(j.keys);
     setMeta({ after: j.quarantine_after, mins: j.quarantine_minutes });
   }
-  useEffect(() => {
-    call();
-  }, []);
   const post = (body: object) => call({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
   return (
@@ -42,8 +41,12 @@ function Keys() {
       <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
       <h1 className="mt-4 text-2xl font-semibold">OpenRouter keys</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Used round-robin when a request has no api_key. A key is quarantined for {meta.mins} min after {meta.after} failures in a row. Added keys live in server memory and are lost on restart.
+        Saved in Cloud · Quarantine: {meta.after} failures / {meta.mins} min
       </p>
+      <form className="mt-6 flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); void call(); }}>
+        <input aria-label="Management token" type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="Management token or server OpenRouter key" className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm" />
+        <Button type="submit" variant="outline">Unlock</Button>
+      </form>
       <form
         className="mt-6 flex gap-2"
         onSubmit={async (e) => {
@@ -52,25 +55,25 @@ function Keys() {
           setInput("");
         }}
       >
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="sk-or-v1-…" className="flex-1 border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground" />
-        <button className="bg-foreground px-4 py-2 text-sm text-background">Add</button>
+        <input aria-label="OpenRouter API key" type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder="OpenRouter API key" className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground" />
+        <Button disabled={!token}>Add</Button>
       </form>
       {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
       <ul className="mt-6 divide-y divide-border border border-border">
         {keys.length === 0 && <li className="p-3 text-sm text-muted-foreground">No keys yet.</li>}
         {keys.map((k) => (
           <li key={k.id} className="flex items-center gap-3 p-3 text-sm">
-            <code className="flex-1">{k.key}</code>
+            <code className="min-w-0 flex-1 break-all">Key {keys.indexOf(k) + 1}</code>
             <span className="text-xs text-muted-foreground">{k.source}</span>
             <span className={k.status === "ok" ? "text-foreground" : k.status === "unknown" ? "text-muted-foreground" : "text-destructive"} title={k.lastError}>
               {k.status}
               {k.failures ? ` (${k.failures})` : ""}
             </span>
             {(k.failures || k.status === "quarantined") && (
-              <button onClick={() => post({ reset: k.id })} className="text-xs underline">reset</button>
+              <Button variant="ghost" size="sm" onClick={() => post({ reset: k.id })}>reset</Button>
             )}
-            {k.source === "runtime" && (
-              <button onClick={() => call({ method: "DELETE" }, `${API}?id=${k.id}`)} className="text-xs text-destructive underline">remove</button>
+            {k.source === "saved" && (
+              <Button variant="ghost" size="sm" onClick={() => call({ method: "DELETE" }, `${API}?id=${k.id}`)}>remove</Button>
             )}
           </li>
         ))}
