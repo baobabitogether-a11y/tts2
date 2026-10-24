@@ -7,7 +7,7 @@ export const speechLanguages = [
 ] as const;
 
 export function speechBody(text: string, lang: string, voice?: string, speed?: number, options?: Record<string, unknown>) {
-  const model = typeof options?.model === 'string' ? options.model : FISH_MODEL;
+  const model = typeof options?.['model'] === 'string' ? options['model'] : FISH_MODEL;
   return { ...options, input: text, model, response_format: 'mp3', speed: speed ?? 1,
     voice: voice || 'b347db033a6549378b48d00acb0d06cd',
     ...(model.startsWith('fish-audio/') ? { language: lang } : {}),
