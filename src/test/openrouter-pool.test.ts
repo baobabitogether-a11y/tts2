@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 
@@ -23,7 +22,7 @@ describe('durable key storage', () => {
   it('reads the saved key and status after all pool modules are reloaded', async () => {
     const pool = await import('@/lib/openrouter-pool.server');
     await pool.addKey('synthetic-test-value');
-    expect(durable.rows[0]?.ciphertext).not.toContain('synthetic-test-value');
+    expect(durable.rows[0]?.['ciphertext']).not.toContain('synthetic-test-value');
     vi.resetModules();
     const reloaded = await import('@/lib/openrouter-pool.server');
     const rows = await reloaded.poolRows();
