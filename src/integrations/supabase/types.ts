@@ -14,13 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      openrouter_keys: {
+        Row: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          source: string
+          status: string
+        }
+        Insert: {
+          ciphertext: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint: string
+          id?: string
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          source?: string
+          status?: string
+        }
+        Update: {
+          ciphertext?: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint?: string
+          id?: string
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      openrouter_rotation: {
+        Row: {
+          cursor: number
+          id: number
+        }
+        Insert: {
+          cursor?: number
+          id?: number
+        }
+        Update: {
+          cursor?: number
+          id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      mark_openrouter_key: {
+        Args: { key_id: string; response_code: number }
+        Returns: undefined
+      }
+      reserve_openrouter_keys: {
+        Args: never
+        Returns: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          source: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "openrouter_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never
