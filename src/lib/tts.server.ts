@@ -242,6 +242,57 @@ async function elevenLabsTts(text: string, lang: string, voice = "JBFqnCBsd6RMkj
   }), async response => new Uint8Array(await response.arrayBuffer()), userId);
 }
 
+function langTag(lang: string) {
+  const [base, region] = lang.replaceAll("_", "-").split("-");
+  const defaults: Record<string, string> = { en: "US", he: "IL", iw: "IL", ar: "SA", zh: "CN", ja: "JP", ko: "KR", hi: "IN", pt: "BR", es: "ES", fr: "FR", de: "DE", it: "IT", ru: "RU", nl: "NL", pl: "PL", tr: "TR", uk: "UA", vi: "VN", sv: "SE", da: "DK", fi: "FI", el: "GR", cs: "CZ", ro: "RO", hu: "HU", th: "TH", id: "ID", fa: "IR" };
+  const b = (base || "en").toLowerCase() === "iw" ? "he" : (base || "en").toLowerCase();
+  return `${b}-${(region || defaults[b] || b).toUpperCase()}`;
+}
+
+async function deepgramTts(text: string, voice?: string, apiKey?: string, options?: Record<string, unknown>, userId?: string) {
+  const model = typeof options?.["model"] === "string" ? options["model"] : voice || "aura-2-thalia-en";
+  return withProviderKey("deepgram", apiKey, (key) => fetch(`https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}&encoding=mp3`, {
+    method: "POST",
+    headers: { Authorization: `Token ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  }), async (r) => new Uint8Array(await r.arrayBuffer()), userId);
+}
+
+const xmlEscape = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
+
+// Azure keys are stored as "region:key" (region may also come from options.region or AZURE_SPEECH_REGION).
+async function azureTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
+  const tag = langTag(lang);
+  const name = voice || (typeof options?.["voice"] === "string" ? options["voice"] : `${tag}-${azureDefaultVoices[tag] || "Neural"}`);
+  const ssml = `<speak version="1.0" xml:lang="${tag}"><voice name="${xmlEscape(name)}"><prosody rate="${Math.round(((speed ?? 1) - 1) * 100)}%">${xmlEscape(text)}</prosody></voice></speak>`;
+  return withProviderKey("azure", apiKey, (raw) => {
+    const m = raw.match(/^([a-z0-9-]+):(.+)$/i);
+    const region = m?.[1] || (typeof options?.["region"] === "string" ? options["region"] : process.env["AZURE_SPEECH_REGION"] || "eastus");
+    return fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+      method: "POST",
+      headers: { "Ocp-Apim-Subscription-Key": m?.[2] || raw, "Content-Type": "application/ssml+xml", "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3", "User-Agent": "tts-api" },
+      body: ssml,
+    });
+  }, async (r) => new Uint8Array(await r.arrayBuffer()), userId);
+}
+const azureDefaultVoices: Record<string, string> = {
+  "en-US": "AvaNeural", "he-IL": "HilaNeural", "ar-SA": "ZariyahNeural", "fr-FR": "DeniseNeural", "de-DE": "KatjaNeural", "es-ES": "ElviraNeural",
+  "it-IT": "ElsaNeural", "pt-BR": "FranciscaNeural", "ru-RU": "SvetlanaNeural", "zh-CN": "XiaoxiaoNeural", "ja-JP": "NanamiNeural", "ko-KR": "SunHiNeural", "hi-IN": "SwaraNeural",
+};
+
+async function googleCloudTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
+  const tag = langTag(lang);
+  return withProviderKey("googlecloud", apiKey, (key) => fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      input: { text },
+      voice: { languageCode: tag, ...(voice && { name: voice }), ...(typeof options?.["gender"] === "string" && { ssmlGender: options["gender"] }) },
+      audioConfig: { audioEncoding: "MP3", speakingRate: Math.max(0.25, Math.min(4, speed ?? 1)), ...(typeof options?.["pitch"] === "number" && { pitch: options["pitch"] }) },
+    }),
+  }), async (r) => b64ToBytes(((await r.json()) as { audioContent: string }).audioContent), userId);
+}
+
 // ---------------- Persistent OpenRouter key pool ----------------
 import { KEY_SERVICES, poolRows, reserveKey, reserveAnyKey, decryptKey, markKey, userKeyRows, reserveUserKey, reserveAnyUserKey, markUserKey, type KeyService } from './openrouter-pool.server';
 export const startedAt = Date.now();
@@ -432,6 +483,9 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
   if (input.provider === "elevenlabs") {
     return { audio: await elevenLabsTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "elevenlabs", usage };
   }
+  if (input.provider === "deepgram") return { audio: await deepgramTts(text, input.voice, input.apiKey, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "deepgram", usage };
+  if (input.provider === "azure") return { audio: await azureTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "azure", usage };
+  if (input.provider === "googlecloud") return { audio: await googleCloudTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "googlecloud", usage };
   return { audio: await openrouterTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "openrouter", usage };
 }
 
