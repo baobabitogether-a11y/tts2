@@ -166,6 +166,9 @@ function Index() {
             <option value="gemini">Google Gemini</option>
             <option value="openai">OpenAI GPT</option>
             <option value="elevenlabs">ElevenLabs</option>
+            <option value="deepgram">Deepgram</option>
+            <option value="azure">Azure Speech</option>
+            <option value="googlecloud">Google Cloud TTS</option>
           </select>
         </label>
         {form.provider === "auto" && <p className="text-xs text-muted-foreground">Auto randomly selects a configured provider key that has no recent authentication or quota failures.</p>}

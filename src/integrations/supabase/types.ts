@@ -87,32 +87,180 @@ export type Database = {
           source: string
           status: string
         }
-        Insert: { ciphertext: string; code?: number | null; created_at?: string; failures?: number; fingerprint: string; id?: string; in_flight?: number; last_used?: string | null; quarantined_until?: string | null; rotation_order?: number; service: string; source?: string; status?: string }
-        Update: { ciphertext?: string; code?: number | null; created_at?: string; failures?: number; fingerprint?: string; id?: string; in_flight?: number; last_used?: string | null; quarantined_until?: string | null; rotation_order?: number; service?: string; source?: string; status?: string }
+        Insert: {
+          ciphertext: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          ciphertext?: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint?: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service?: string
+          source?: string
+          status?: string
+        }
         Relationships: []
       }
       provider_key_rotation: {
-        Row: { cursor: number; service: string }
-        Insert: { cursor?: number; service: string }
-        Update: { cursor?: number; service?: string }
+        Row: {
+          cursor: number
+          service: string
+        }
+        Insert: {
+          cursor?: number
+          service: string
+        }
+        Update: {
+          cursor?: number
+          service?: string
+        }
         Relationships: []
       }
       provider_usage_events: {
-        Row: { id: number; occurred_at: string; method: string; service: string; status: number; duration_ms: number; audio_bytes: number; input_chars: number; output_chars: number; estimated_input_tokens: number; provider_input_tokens: number | null; provider_output_tokens: number | null; cached: boolean; user_id: string | null }
-        Insert: { id?: number; occurred_at?: string; method: string; service: string; status: number; duration_ms?: number; audio_bytes?: number; input_chars?: number; output_chars?: number; estimated_input_tokens?: number; provider_input_tokens?: number | null; provider_output_tokens?: number | null; cached?: boolean; user_id?: string | null }
-        Update: { id?: number; occurred_at?: string; method?: string; service?: string; status?: number; duration_ms?: number; audio_bytes?: number; input_chars?: number; output_chars?: number; estimated_input_tokens?: number; provider_input_tokens?: number | null; provider_output_tokens?: number | null; cached?: boolean; user_id?: string | null }
-        Relationships: []
-      }
-      user_provider_api_keys: {
-        Row: { ciphertext: string; code: number | null; created_at: string; failures: number; fingerprint: string; id: string; in_flight: number; last_used: string | null; quarantined_until: string | null; rotation_order: number; service: string; status: string; user_id: string }
-        Insert: { ciphertext: string; code?: number | null; created_at?: string; failures?: number; fingerprint: string; id?: string; in_flight?: number; last_used?: string | null; quarantined_until?: string | null; rotation_order?: number; service: string; status?: string; user_id: string }
-        Update: { ciphertext?: string; code?: number | null; created_at?: string; failures?: number; fingerprint?: string; id?: string; in_flight?: number; last_used?: string | null; quarantined_until?: string | null; rotation_order?: number; service?: string; status?: string; user_id?: string }
+        Row: {
+          audio_bytes: number
+          cached: boolean
+          duration_ms: number
+          estimated_input_tokens: number
+          id: number
+          input_chars: number
+          method: string
+          occurred_at: string
+          output_chars: number
+          provider_input_tokens: number | null
+          provider_output_tokens: number | null
+          service: string
+          status: number
+          user_id: string | null
+        }
+        Insert: {
+          audio_bytes?: number
+          cached?: boolean
+          duration_ms?: number
+          estimated_input_tokens?: number
+          id?: never
+          input_chars?: number
+          method: string
+          occurred_at?: string
+          output_chars?: number
+          provider_input_tokens?: number | null
+          provider_output_tokens?: number | null
+          service: string
+          status: number
+          user_id?: string | null
+        }
+        Update: {
+          audio_bytes?: number
+          cached?: boolean
+          duration_ms?: number
+          estimated_input_tokens?: number
+          id?: never
+          input_chars?: number
+          method?: string
+          occurred_at?: string
+          output_chars?: number
+          provider_input_tokens?: number | null
+          provider_output_tokens?: number | null
+          service?: string
+          status?: number
+          user_id?: string | null
+        }
         Relationships: []
       }
       user_api_tokens: {
-        Row: { created_at: string; id: string; label: string; last_used: string | null; revoked_at: string | null; token_hash: string; user_id: string }
-        Insert: { created_at?: string; id?: string; label?: string; last_used?: string | null; revoked_at?: string | null; token_hash: string; user_id: string }
-        Update: { created_at?: string; id?: string; label?: string; last_used?: string | null; revoked_at?: string | null; token_hash?: string; user_id?: string }
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used: string | null
+          revoked_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_provider_api_keys: {
+        Row: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ciphertext: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          ciphertext?: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint?: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service?: string
+          status?: string
+          user_id?: string
+        }
         Relationships: []
       }
     }
@@ -123,6 +271,66 @@ export type Database = {
       mark_openrouter_key: {
         Args: { key_id: string; response_code: number }
         Returns: undefined
+      }
+      mark_provider_key: {
+        Args: { key_id: string; response_code: number }
+        Returns: undefined
+      }
+      mark_user_provider_key: {
+        Args: { key_id: string; owner_id: string; response_code: number }
+        Returns: undefined
+      }
+      provider_usage_report: {
+        Args: { report_user_id?: string; window_hours?: number }
+        Returns: Json
+      }
+      reserve_any_provider_key: {
+        Args: { excluded_keys?: string[] }
+        Returns: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          source: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_any_user_provider_key: {
+        Args: { excluded_keys?: string[]; owner_id: string }
+        Returns: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          status: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       reserve_openrouter_keys: {
         Args: never
@@ -139,15 +347,65 @@ export type Database = {
           source: string
           status: string
         }[]
-        SetofOptions: { from: "*"; to: "openrouter_keys"; isOneToOne: false; isSetofReturn: true }
+        SetofOptions: {
+          from: "*"
+          to: "openrouter_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
-      reserve_provider_key: { Args: { service_name: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["provider_api_keys"]["Row"][] }
-      reserve_any_provider_key: { Args: { excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["provider_api_keys"]["Row"][] }
-      mark_provider_key: { Args: { key_id: string; response_code: number }; Returns: undefined }
-      reserve_user_provider_key: { Args: { owner_id: string; service_name: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["user_provider_api_keys"]["Row"][] }
-      reserve_any_user_provider_key: { Args: { owner_id: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["user_provider_api_keys"]["Row"][] }
-      mark_user_provider_key: { Args: { owner_id: string; key_id: string; response_code: number }; Returns: undefined }
-      provider_usage_report: { Args: { window_hours?: number; report_user_id?: string | null }; Returns: Json }
+      reserve_provider_key: {
+        Args: { excluded_keys?: string[]; service_name: string }
+        Returns: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          source: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_user_provider_key: {
+        Args: {
+          excluded_keys?: string[]
+          owner_id: string
+          service_name: string
+        }
+        Returns: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          status: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

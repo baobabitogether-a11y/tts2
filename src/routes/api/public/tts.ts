@@ -35,7 +35,7 @@ const schema = z.object({
   text: z.string().trim().min(1).max(5000),
   lang: z.string().trim().min(2).max(20),
   target_lang: z.string().trim().max(20).optional().or(z.literal("")),
-  provider: z.enum(["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"]).default("google"),
+  provider: z.enum(["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"]).default("google"),
   api_key: z.string().max(500).optional().or(z.literal("")),
   voice: z.string().max(50).optional().or(z.literal("")),
   speed: z.coerce.number().min(0.25).max(4).optional(),
