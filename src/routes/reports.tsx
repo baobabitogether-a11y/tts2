@@ -19,6 +19,8 @@ type ServiceReport = {
   failed: number;
   cached: number;
   audio_bytes: number;
+  input_chars: number;
+  output_chars: number;
   estimated_input_tokens: number;
   provider_input_tokens: number;
   provider_output_tokens: number;
@@ -87,6 +89,7 @@ function Reports() {
             <Metric label="Succeeded / failed" value={`${report.totals.successful} / ${report.totals.failed}`} />
             <Metric label="Average duration" value={`${report.totals.avg_duration_ms} ms`} />
             <Metric label="Audio generated" value={formatBytes(report.totals.audio_bytes)} />
+            <Metric label="Characters in / out" value={`${report.totals.input_chars} / ${report.totals.output_chars}`} />
             <Metric label="Cache hits" value={report.totals.cached} />
             <Metric label="Estimated input tokens" value={report.totals.estimated_input_tokens} />
             <Metric label="Reported input tokens" value={report.totals.provider_input_tokens} />
@@ -99,6 +102,7 @@ function Reports() {
                 <th className="py-2 pr-4 font-medium">Requests</th>
                 <th className="py-2 pr-4 font-medium">Success / failed</th>
                 <th className="py-2 pr-4 font-medium">Cache hits</th>
+                <th className="py-2 pr-4 font-medium">Characters in / out</th>
                 <th className="py-2 pr-4 font-medium">Estimated input tokens</th>
                 <th className="py-2 pr-4 font-medium">Reported tokens in / out</th>
                 <th className="py-2 font-medium">Avg. ms</th>
@@ -111,12 +115,13 @@ function Reports() {
                   <td className="py-3 pr-4">{service.requests}</td>
                   <td className="py-3 pr-4">{service.successful} / {service.failed}</td>
                   <td className="py-3 pr-4">{service.cached}</td>
+                  <td className="py-3 pr-4">{service.input_chars} / {service.output_chars}</td>
                   <td className="py-3 pr-4">{service.estimated_input_tokens}</td>
                   <td className="py-3 pr-4">{service.provider_input_tokens} / {service.provider_output_tokens}</td>
                   <td className="py-3">{service.avg_duration_ms}</td>
                 </tr>
               ))}
-              {report.services.length === 0 && <tr><td colSpan={7} className="py-5 text-muted-foreground">No requests in this window.</td></tr>}
+              {report.services.length === 0 && <tr><td colSpan={8} className="py-5 text-muted-foreground">No requests in this window.</td></tr>}
             </tbody>
           </table>
           <p className="mt-3 text-xs text-muted-foreground">Input tokens are estimated from spoken text. Reported token totals are included only when a provider returns usage data. Request text and credentials are never stored in this report.</p>

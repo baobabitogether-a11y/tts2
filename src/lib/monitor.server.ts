@@ -42,7 +42,7 @@ export async function record(e: HistoryEntry) {
   }
 }
 
-type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string; usage?: { inputTokens?: number; outputTokens?: number } };
+type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string; provider?: string; usage?: { inputTokens?: number; outputTokens?: number } };
 const CACHE_MAX_BYTES = 50 * 1024 * 1024;
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const cache = new Map<string, { v: CacheVal; at: number }>();

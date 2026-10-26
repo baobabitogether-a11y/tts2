@@ -8,14 +8,26 @@ on the backend create an endpoint to fetch audio based on:
 - text
 - lang
 - target lang (utilize translation if target lang is specified)
-- service provider name (google / lovable / openrouter)
-- api key (in case of openrouter)
+- service provider name (`auto`, Google, Lovable, OpenRouter, Gemini, OpenAI, or ElevenLabs)
+- optional provider API key
 
-For OpenRouter: allow providing an API key in the request and also allow configuring in advance a list of OpenRouter API keys to round-robin between them (probe them in serial order; in case one of them is blocked, move it to the end of the list and continue probing until a response is satisfied).
+For keyed providers, keys can be supplied in the request, stored in the encrypted provider-key pool, or configured through environment variables. Auto randomly selects a configured key that is not currently marked blocked/quarantined, and tries another key/provider after authentication, quota, or availability failures. Exact credit balances are provider-specific and are not polled by Auto.
 
 For Google: use the Google translation mechanism if target lang is specified, and fetch audio via https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl={lang}&q={text}.
 
 Extend it with the Lovable TTS option as well.
+
+## Provider keys and usage
+
+Environment variables accept one key or a comma/whitespace-separated key list:
+
+- `OPENROUTER_API_KEY` / `OPENROUTER_API_KEYS`
+- `LOVABLE_API_KEY` / `LOVABLE_API_KEYS`
+- `GEMINI_API_KEY` / `GEMINI_API_KEYS`
+- `OPENAI_API_KEY` / `OPENAI_API_KEYS`
+- `ELEVENLABS_API_KEY` / `ELEVENLABS_API_KEYS`
+
+Saved keys require `OPENROUTER_KEY_ENCRYPTION_SECRET`. Protect key management and the JSON usage endpoint with `PROVIDER_MANAGEMENT_TOKEN` (or the legacy `OPENROUTER_MANAGEMENT_TOKEN`). The report endpoint is `GET /api/public/usage?hours=24`; it returns JSON grouped by the provider that actually served each request, with character counts, estimated and provider-reported tokens, audio bytes, cache hits, and latency.
 
 This project was built with [Lovable](https://lovable.dev).
 

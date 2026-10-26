@@ -7,7 +7,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "*",
-  "Access-Control-Expose-Headers": "X-Spoken-Text, X-Spoken-Lang, X-Cache, Content-Type",
+  "Access-Control-Expose-Headers": "X-Spoken-Text, X-Spoken-Lang, X-Provider, X-Cache, Content-Type",
 };
 
 const optionsSchema = z
@@ -33,7 +33,7 @@ const schema = z.object({
   text: z.string().trim().min(1).max(5000),
   lang: z.string().trim().min(2).max(20),
   target_lang: z.string().trim().max(20).optional().or(z.literal("")),
-  provider: z.enum(["google", "lovable", "openrouter"]).default("google"),
+  provider: z.enum(["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"]).default("google"),
   api_key: z.string().max(500).optional().or(z.literal("")),
   voice: z.string().max(50).optional().or(z.literal("")),
   speed: z.coerce.number().min(0.25).max(4).optional(),
@@ -52,7 +52,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
   const base = { method, provider: p.provider, lang: p.lang, ...(p.target_lang ? { target_lang: p.target_lang } : {}) };
   const key = JSON.stringify([p.provider, p.lang, p.target_lang || "", p.voice || "", p.speed ?? "", p.options ?? null, p.text]);
   try {
-    let r = cacheGet(key);
+    let r = p.provider === "auto" ? undefined : cacheGet(key);
     const cached = !!r;
     if (!r) {
       r = await synthesize({
@@ -65,11 +65,12 @@ async function handle(raw: Record<string, unknown>, method: string) {
         speed: p.speed,
         options: p.options,
       });
-      cacheSet(key, r);
+      if (p.provider !== "auto") cacheSet(key, r);
     }
     await record({
       at: new Date().toISOString(),
       ...base,
+      provider: r.provider,
       status: 200,
       ms: Date.now() - t0,
       bytes: r.audio.length,
@@ -82,7 +83,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
     });
     const extra = { "X-Cache": cached ? "HIT" : "MISS" };
     if (p.format === "json")
-      return Response.json({ audio: bytesToB64(r.audio), mime: r.mime, text: r.text, lang: r.lang }, { headers: { ...CORS, ...extra } });
+      return Response.json({ audio: bytesToB64(r.audio), mime: r.mime, text: r.text, lang: r.lang, provider: r.provider, usage: r.usage }, { headers: { ...CORS, ...extra } });
     return new Response(r.audio as BodyInit, {
       headers: {
         ...CORS,
@@ -90,6 +91,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
         "Content-Type": r.mime,
         "X-Spoken-Text": encodeURIComponent(r.text.slice(0, 2000)),
         "X-Spoken-Lang": r.lang,
+        "X-Provider": r.provider,
       },
     });
   } catch (e) {

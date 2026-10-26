@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 export const Route = createFileRoute("/openrouter")({
   head: () => ({
     meta: [
-      { title: "OpenRouter keys — Speak API" },
-      { name: "description", content: "Manage the pool of OpenRouter API keys used for load-balanced text-to-speech." },
-      { property: "og:title", content: "OpenRouter keys — Speak API" },
-      { property: "og:description", content: "Add, remove and monitor round-robin OpenRouter API keys." },
+      { title: "Provider keys — Speak API" },
+      { name: "description", content: "Manage encrypted API-key pools for load-balanced text-to-speech providers." },
+      { property: "og:title", content: "Provider keys — Speak API" },
+      { property: "og:description", content: "Add, remove and monitor provider API keys." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -17,12 +17,20 @@ export const Route = createFileRoute("/openrouter")({
 });
 
 type K = { id: string; service: string; key: string; source: string; status: string; failures?: number; lastError?: string; quarantinedUntil?: number; lastUsed?: number };
+type KeyService = "openrouter" | "lovable" | "gemini" | "openai" | "elevenlabs";
+const services: Array<{ id: KeyService; label: string }> = [
+  { id: "openrouter", label: "OpenRouter" },
+  { id: "lovable", label: "Lovable AI" },
+  { id: "gemini", label: "Google Gemini" },
+  { id: "openai", label: "OpenAI" },
+  { id: "elevenlabs", label: "ElevenLabs" },
+];
 const API = "/api/public/openrouter-keys";
 
 function Keys() {
   const [keys, setKeys] = useState<K[]>([]);
   const [meta, setMeta] = useState({ after: 10, mins: 15 });
-  const [service, setService] = useState<"openrouter" | "lovable">("openrouter");
+  const [service, setService] = useState<KeyService>("openrouter");
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
   const [token, setToken] = useState('');
@@ -53,9 +61,8 @@ function Keys() {
       </form>
       <label className="mt-4 block text-sm">
         Service
-        <select aria-label="Provider service" value={service} onChange={e => { const next = e.target.value as "openrouter" | "lovable"; setService(next); if (token) void call(undefined, `${API}?service=${next}`); }} className="ml-3 border border-border bg-background px-3 py-2">
-          <option value="openrouter">OpenRouter</option>
-          <option value="lovable">Lovable AI</option>
+        <select aria-label="Provider service" value={service} onChange={e => { const next = e.target.value as KeyService; setService(next); if (token) void call(undefined, `${API}?service=${next}`); }} className="ml-3 border border-border bg-background px-3 py-2">
+          {services.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </label>
       <form

@@ -15,6 +15,20 @@
       "when": 1792801292804,
       "tag": "0001_provider_pools_and_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793060000000,
+      "tag": "0002_multivendor_provider_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793060000001,
+      "tag": "0003_usage_character_totals",
+      "breakpoints": true
     }
   ]
 }

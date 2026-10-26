@@ -2,7 +2,8 @@ import type { Database } from '@/integrations/supabase/types';
 
 export const QUARANTINE_AFTER = 10;
 export const QUARANTINE_MS = 15 * 60 * 1000;
-export type KeyService = 'openrouter' | 'lovable';
+export const KEY_SERVICES = ['openrouter', 'lovable', 'gemini', 'openai', 'elevenlabs'] as const;
+export type KeyService = typeof KEY_SERVICES[number];
 type Row = Database['public']['Tables']['provider_api_keys']['Row'];
 const encoder = new TextEncoder();
 const bytes = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -31,14 +32,20 @@ async function fingerprint(value: string) {
   return base64(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(value))));
 }
 export function environmentKeys(service: KeyService = 'openrouter') {
-  const values = service === 'openrouter'
-    ? [process.env['OPENROUTER_API_KEY'] || '', ...(process.env['OPENROUTER_API_KEYS'] || '').split(/[\s,]+/)]
-    : [process.env['LOVABLE_API_KEY'] || '', ...(process.env['LOVABLE_API_KEYS'] || '').split(/[\s,]+/)];
+  const names: Record<KeyService, string> = {
+    openrouter: 'OPENROUTER',
+    lovable: 'LOVABLE',
+    gemini: 'GEMINI',
+    openai: 'OPENAI',
+    elevenlabs: 'ELEVENLABS',
+  };
+  const name = names[service];
+  const values = [process.env[`${name}_API_KEY`] || '', ...(process.env[`${name}_API_KEYS`] || '').split(/[\s,]+/)];
   return [...new Set(values.map(k => k.trim()).filter(Boolean))];
 }
 export async function authorizeManagement(request: Request) {
   const supplied = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
-  const allowed = [process.env['PROVIDER_MANAGEMENT_TOKEN'] || process.env['OPENROUTER_MANAGEMENT_TOKEN'] || '', ...environmentKeys('openrouter'), ...environmentKeys('lovable')].filter(Boolean);
+  const allowed = [process.env['PROVIDER_MANAGEMENT_TOKEN'] || process.env['OPENROUTER_MANAGEMENT_TOKEN'] || '', ...KEY_SERVICES.flatMap(environmentKeys)].filter(Boolean);
   if (!supplied || !allowed.length) return false;
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(supplied)));
   for (const value of allowed) {
@@ -52,7 +59,7 @@ export async function authorizeManagement(request: Request) {
 export function addKey(value: string, source?: string): Promise<boolean>;
 export function addKey(service: KeyService, value: string, source?: string): Promise<boolean>;
 export async function addKey(serviceOrValue: string, valueOrSource = 'saved', source = 'saved') {
-  const hasService = serviceOrValue === 'openrouter' || serviceOrValue === 'lovable';
+  const hasService = (KEY_SERVICES as readonly string[]).includes(serviceOrValue);
   const service: KeyService = hasService ? serviceOrValue as KeyService : 'openrouter';
   const value = hasService ? valueOrSource : serviceOrValue;
   const keySource = hasService ? source : valueOrSource;
@@ -60,19 +67,29 @@ export async function addKey(serviceOrValue: string, valueOrSource = 'saved', so
   const key = value.trim();
   const { error } = await supabaseAdmin.from('provider_api_keys').insert({ service, fingerprint: await fingerprint(key), ciphertext: await encrypt(key), source: keySource });
   if (error?.code === '23505') return false;
-  if (error) throw new Error('Could not save OpenRouter key');
+  if (error) throw new Error('Could not save provider key');
   return true;
 }
 export async function poolRows(service?: KeyService) {
-  const services = service ? [service] : ['openrouter', 'lovable'] as const;
-  for (const current of services) {
-    for (const key of environmentKeys(current)) await addKey(current, key, 'env');
-  }
+  const services: readonly KeyService[] = service ? [service] : KEY_SERVICES;
   const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+  const environmentRows = await Promise.all(services.flatMap(current => environmentKeys(current).map(async key => ({
+    service: current,
+    fingerprint: await fingerprint(key),
+    ciphertext: await encrypt(key),
+    source: 'env',
+  }))));
+  if (environmentRows.length) {
+    const { error: syncError } = await supabaseAdmin.from('provider_api_keys').upsert(environmentRows, {
+      onConflict: 'service,fingerprint',
+      ignoreDuplicates: true,
+    });
+    if (syncError) throw new Error('Could not synchronize provider keys');
+  }
   const base = supabaseAdmin.from('provider_api_keys').select('*');
   const query = service ? base.eq('service', service) : base;
   const { data, error } = await query.order('created_at');
-  if (error) throw new Error('Could not load OpenRouter keys');
+  if (error) throw new Error('Could not load provider keys');
   return data || [];
 }
 export function publicKey(row: Row) {
@@ -81,12 +98,16 @@ export function publicKey(row: Row) {
 }
 export async function listKeys(service?: KeyService) { return (await poolRows(service)).map(publicKey); }
 export async function reserveKey(service: KeyService, excluded: string[] = []) {
-  const all = await poolRows(service);
-  if (!all.length) return { all, key: null };
   const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
   const { data, error } = await supabaseAdmin.rpc('reserve_provider_key', { service_name: service, excluded_keys: excluded });
   if (error) throw new Error('Could not reserve provider keys');
-  return { all, key: data?.[0] || null };
+  return { key: data?.[0] || null };
+}
+export async function reserveAnyKey(excluded: string[] = []) {
+  const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+  const { data, error } = await supabaseAdmin.rpc('reserve_any_provider_key', { excluded_keys: excluded });
+  if (error) throw new Error('Could not reserve a provider key');
+  return data?.[0] || null;
 }
 export async function markKey(id: string, code: number) {
   const { supabaseAdmin } = await import('@/integrations/supabase/client.server');

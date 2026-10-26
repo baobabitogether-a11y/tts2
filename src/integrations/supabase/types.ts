@@ -196,6 +196,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reserve_any_provider_key: {
+        Args: { excluded_keys?: string[] }
+        Returns: Database['public']['Tables']['provider_api_keys']['Row'][]
+        SetofOptions: {
+          from: "*"
+          to: "provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       mark_openrouter_key: {
         Args: { key_id: string; response_code: number }
         Returns: undefined
