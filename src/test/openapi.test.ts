@@ -3,9 +3,9 @@ import { openApiSpec } from "@/lib/openapi";
 
 describe("public OpenAPI specification", () => {
   it("documents every TTS provider and the provider returned by Auto", () => {
-    const provider =
-      openApiSpec.paths["/api/public/tts"].post.requestBody.content["application/json"].schema
-        .properties.provider;
+    const tts = openApiSpec.paths["/api/public/tts"];
+    const schema = tts.post.requestBody.content["application/json"].schema;
+    const provider = schema.properties.provider;
 
     expect(provider.enum).toEqual([
       "auto",
@@ -27,7 +27,18 @@ describe("public OpenAPI specification", () => {
         .properties.api_key.description,
     ).toContain("takes precedence");
     expect(openApiSpec.servers[0]?.url).toBe("https://tts2.lovable.app");
-    expect(openApiSpec.paths["/api/public/tts"].post.operationId).toBe("synthesizeSpeech");
+    expect(tts.post.operationId).toBe("synthesizeSpeech");
+    expect(schema.properties.text).toMatchObject({ minLength: 1, maxLength: 5000 });
+    expect(schema.properties.lang).toMatchObject({ minLength: 2, maxLength: 20 });
+    expect(schema.properties.target_lang).toMatchObject({ maxLength: 20 });
+    expect(schema.properties.api_key).toMatchObject({ maxLength: 500 });
+    expect(schema.properties.voice).toMatchObject({ maxLength: 50 });
+    expect(
+      tts.get.parameters.find((parameter) => parameter.name === "options")?.schema,
+    ).toMatchObject({ type: "string", maxLength: 2000 });
+    expect(
+      tts.post.parameters.find((parameter) => parameter.name === "X-Provider-API-Key")?.schema,
+    ).toMatchObject({ type: "string", maxLength: 500 });
   });
 
   it("documents authenticated machine-readable usage aggregates", () => {

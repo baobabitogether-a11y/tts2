@@ -1,13 +1,21 @@
 const params = {
-  text: { type: "string", description: "Text to speak (max 5000 chars)" },
+  text: {
+    type: "string",
+    minLength: 1,
+    maxLength: 5000,
+    description: "Text to speak (trimmed; 1–5000 characters)",
+  },
   lang: {
     type: "string",
+    minLength: 2,
+    maxLength: 20,
     description:
       "Source language as a YouTube-supported language code or BCP-47 tag (for example en, zh-Hant, es-419, or pt-BR). Language codes are passed through to the selected provider.",
     example: "en",
   },
   target_lang: {
     type: "string",
+    maxLength: 20,
     description:
       "Optional YouTube-supported language code or BCP-47 tag. If set, text is translated before speaking.",
     example: "fr-CA",
@@ -21,11 +29,13 @@ const params = {
   },
   api_key: {
     type: "string",
+    maxLength: 500,
     description:
       "API key for the selected keyed provider. This per-request key takes precedence over saved and server-configured keys and is not stored. Omit to use configured keys. Requires an explicit keyed provider (not auto or google). Personal API tokens must omit this field and use account-owned keys. Prefer POST or the X-Provider-API-Key header to avoid URL logging.",
   },
   voice: {
     type: "string",
+    maxLength: 50,
     description:
       "Provider-specific voice. Gemini: prebuilt voice name (default Kore). OpenAI: voice name (default coral). ElevenLabs: voice ID (default JBFqnCBsd6RMkjVDRZzb). OpenRouter: provider-specific voice ID; Fish Audio chooses a licensed voice matching lang when available. Auto ignores this field.",
   },
@@ -153,7 +163,11 @@ export const openApiSpec = {
             required: name === "text" || name === "lang",
             schema:
               name === "options"
-                ? { type: "string", description: "URL-encoded JSON object of provider options." }
+                ? {
+                    type: "string",
+                    maxLength: 2000,
+                    description: "URL-encoded JSON object of provider options.",
+                  }
                 : schema,
           })),
           {
@@ -162,7 +176,7 @@ export const openApiSpec = {
             required: false,
             description:
               "Per-request provider key; overrides saved and server-configured keys. Use with a specific keyed provider, not Auto or Google. Header takes precedence over api_key.",
-            schema: { type: "string" },
+            schema: { type: "string", maxLength: 500 },
           },
         ],
         responses: {
@@ -188,7 +202,7 @@ export const openApiSpec = {
             required: false,
             description:
               "Per-request provider key; overrides saved and server-configured keys. Use with a specific keyed provider, not Auto or Google. Header takes precedence over api_key.",
-            schema: { type: "string" },
+            schema: { type: "string", maxLength: 500 },
           },
         ],
         requestBody: {

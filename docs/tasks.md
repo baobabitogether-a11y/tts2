@@ -157,3 +157,11 @@ go on.
 ```
 
 **Status: Done for OpenAPI linter/security validation.** Redocly identified missing explicit security declarations on public operations and an incomplete description of usage authentication. Added `security: []` for unauthenticated TTS/spec operations and documented personal-token, Supabase-session, or management-bearer authentication for usage. Constrained shared-key POST input to require either `key` or `reset`. All 35 tests pass; Redocly validates the served contract with two advisory warnings (license not declared, and the always-successful spec endpoint has no 4xx response). Build validation is being rerun for this continuation. Full local Supabase and real provider audio remain blocked.
+
+### 15. Continue
+
+```text
+go on.
+```
+
+**Status: Done for provider request-bound documentation.** Compared OpenAPI limits with the TTS route's Zod schema and documented the enforced text, language, target-language, API-key, voice, and GET-options limits, including the header API key limit. Added assertions to the OpenAPI tests. All 35 tests pass; ESLint, Prettier, production build, and Drizzle check pass. Redocly validates the served JSON with only the same two advisory warnings (the project has no declared license, so do not invent one, and the OpenAPI endpoint has no meaningful 4xx response). Full local Supabase, real provider audio, and GitHub publishing remain blocked.
