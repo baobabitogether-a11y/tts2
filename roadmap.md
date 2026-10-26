@@ -2,3 +2,5 @@
 - [ ] Persist OpenRouter keys, failure status, quarantine and rotation in Cloud.
 - [ ] Secure key management and verify persistence and synthesis.
 - [ ] Use the saved OPENROUTER_API_KEY as a server-pool key and test real multilingual audio.
+- [ ] Fix Fish Audio speaking target languages with English phonetics.
+- [ ] Extend services with more providers/options (scope to confirm with user).
