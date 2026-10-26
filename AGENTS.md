@@ -19,6 +19,7 @@
 - Keep `docs/codespace.md` current with verified Codespaces, Docker, and local-Supabase setup behavior. Distinguish environment-specific blockers from application defects and record tested workarounds.
 - Keep provider-specific HTTP adapters in `src/lib/tts.server.ts`; do not expose provider credentials to browser code or log them.
 - The canonical OpenAPI document is `src/lib/openapi.ts`, served at `/api/public/openapi.json`. Update its provider, request, response, and usage schemas when API behavior changes.
+- Keep every API route represented in OpenAPI. Each operation must have `responses` as a sibling of `requestBody`; add tests for operation structure and security-sensitive response shapes because valid JSON alone does not establish a valid OpenAPI contract.
 - Keep the browsable API reference at `/docs` generated from that canonical OpenAPI object; link it from the speech playground and keep `/api/public/openapi.json` available for tools.
 - Add database changes as ordered Drizzle SQL migrations, register each migration in `drizzle/migrations/meta/_journal.json`, and update `src/integrations/supabase/types.ts` for changed tables or RPCs.
 - Auto routing uses configured keys and persisted health/quarantine state; it does not imply live provider credit-balance polling. Keep usage statistics grouped by the actual provider that served the request.

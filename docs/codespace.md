@@ -92,3 +92,18 @@ npx drizzle-kit check
 ```
 
 The CLI's generated `supabase/.temp/` state is ignored by Git. Do not commit it.
+
+## HTTP smoke tests and production preview
+
+`npm run dev -- --host 127.0.0.1` was verified to serve the app, `/docs`, and
+`/api/public/openapi.json`. Use it for local HTTP smoke checks in this
+Codespace.
+
+`npm run build` succeeds and emits the Nitro/Cloudflare worker under `.output/`.
+However, `npm run preview` (`vite preview`) currently fails because the
+TanStack preview plugin looks for `dist/server/server.js`, which this build
+does not produce. Do not treat that preview error as an application route
+failure or repeatedly retry the same command. Production artifact runtime
+verification needs a preview command that targets the configured Cloudflare
+output; until then, report build validation and dev-server HTTP validation
+separately.

@@ -205,6 +205,154 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/public/openapi.json": {
+      get: {
+        operationId: "getOpenApiDocument",
+        summary: "Get the canonical OpenAPI document",
+        responses: {
+          "200": {
+            description: "Current Speak API contract in OpenAPI 3.1 JSON format.",
+            headers: {
+              "Access-Control-Allow-Origin": {
+                schema: { type: "string", const: "*" },
+                description: "Allows browser clients to fetch the public API contract.",
+              },
+            },
+            content: {
+              "application/json": {
+                schema: { type: "object", description: "The canonical OpenAPI 3.1 document." },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/public/openrouter-keys": {
+      get: {
+        operationId: "listSharedProviderKeys",
+        summary: "List shared provider key metadata",
+        description:
+          "Requires a management bearer token or configured server provider key. Secrets, ciphertext, and fingerprints are never returned.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "service",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+              default: "openrouter",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Shared provider keys and their health state.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    service: { type: "string" },
+                    keys: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string", format: "uuid" },
+                          service: { type: "string" },
+                          key: { type: "string", const: "Configured key" },
+                          source: { type: "string" },
+                          status: { type: "string" },
+                          code: { type: ["integer", "null"] },
+                          failures: { type: "integer" },
+                          lastUsed: { type: "integer" },
+                          quarantinedUntil: { type: "integer" },
+                        },
+                      },
+                    },
+                    quarantine_after: { type: "integer" },
+                    quarantine_minutes: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Unsupported provider service" },
+          "401": { description: "Management authorization required" },
+          "503": { description: "Saved provider key management requires Supabase" },
+        },
+      },
+      post: {
+        operationId: "updateSharedProviderKeys",
+        summary: "Add a shared provider key or reset its health",
+        description:
+          "Requires a management bearer token or configured server provider key. A key is encrypted before storage; use `reset` with a key row ID to reset its health instead.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  service: {
+                    type: "string",
+                    enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                  },
+                  key: { type: "string", maxLength: 500 },
+                  reset: {
+                    type: "string",
+                    format: "uuid",
+                    description: "Shared key row ID whose failure state should be reset.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated key list and health state" },
+          "400": { description: "Unsupported service or invalid/missing key" },
+          "401": { description: "Management authorization required" },
+          "404": { description: "Key to reset was not found" },
+          "409": { description: "Key already exists" },
+          "503": { description: "Saved provider key management requires Supabase" },
+        },
+      },
+      delete: {
+        operationId: "deleteSharedProviderKey",
+        summary: "Delete a saved shared provider key",
+        description:
+          "Requires a management bearer token or configured server provider key. Keys managed through environment variables cannot be deleted here.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "query",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "service",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+              default: "openrouter",
+            },
+          },
+        ],
+        responses: {
+          "200": { description: "Updated key list and health state" },
+          "400": { description: "Key not found or managed in server secrets" },
+          "401": { description: "Management authorization required" },
+          "503": { description: "Saved provider key management requires Supabase" },
+        },
+      },
+    },
     "/api/public/usage": {
       get: {
         operationId: "getProviderUsageReport",
@@ -281,101 +429,101 @@ export const openApiSpec = {
               },
             },
           },
-          responses: {
-            "201": {
-              description: "New token. Store the token value securely; it is shown only once.",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    required: ["id", "token"],
-                    properties: {
-                      id: { type: "string", format: "uuid" },
-                      token: { type: "string", description: "Personal bearer secret; shown once." },
-                    },
-                  },
-                },
-              },
-            },
-            "401": { description: "Valid Supabase session required" },
-          },
         },
-        delete: {
-          operationId: "revokePersonalApiToken",
-          summary: "Revoke a personal API token",
-          security: [{ supabaseSessionAuth: [] }],
-          parameters: [
-            { name: "id", in: "query", required: true, schema: { type: "string", format: "uuid" } },
-          ],
-          responses: {
-            "200": { description: "Token revoked" },
-            "404": { description: "Token not found for this user" },
-            "401": { description: "Valid Supabase session required" },
-          },
-        },
-      },
-      "/api/user/provider-keys": {
-        get: {
-          operationId: "listPersonalProviderKeys",
-          summary: "List personal provider keys",
-          security: [{ supabaseSessionAuth: [] }],
-          responses: {
-            "200": {
-              description:
-                "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      services: {
-                        type: "array",
-                        items: {
-                          type: "string",
-                          enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
-                        },
-                      },
-                      keys: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            id: { type: "string", format: "uuid" },
-                            service: { type: "string" },
-                            status: { type: "string" },
-                            failures: { type: "integer" },
-                            code: { type: ["integer", "null"] },
-                            created_at: { type: "string", format: "date-time" },
-                            last_used: { type: ["string", "null"], format: "date-time" },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            "401": { description: "Valid Supabase session required" },
-          },
-        },
-        post: {
-          operationId: "savePersonalProviderKey",
-          summary: "Save a personal provider key",
-          security: [{ supabaseSessionAuth: [] }],
-          requestBody: {
-            required: true,
+        responses: {
+          "201": {
+            description: "New token. Store the token value securely; it is shown only once.",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["service", "key"],
+                  required: ["id", "token"],
                   properties: {
-                    service: {
-                      type: "string",
-                      enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
-                    },
-                    key: { type: "string", maxLength: 500 },
+                    id: { type: "string", format: "uuid" },
+                    token: { type: "string", description: "Personal bearer secret; shown once." },
                   },
+                },
+              },
+            },
+          },
+          "401": { description: "Valid Supabase session required" },
+        },
+      },
+      delete: {
+        operationId: "revokePersonalApiToken",
+        summary: "Revoke a personal API token",
+        security: [{ supabaseSessionAuth: [] }],
+        parameters: [
+          { name: "id", in: "query", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Token revoked" },
+          "404": { description: "Token not found for this user" },
+          "401": { description: "Valid Supabase session required" },
+        },
+      },
+    },
+    "/api/user/provider-keys": {
+      get: {
+        operationId: "listPersonalProviderKeys",
+        summary: "List personal provider keys",
+        security: [{ supabaseSessionAuth: [] }],
+        responses: {
+          "200": {
+            description:
+              "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    services: {
+                      type: "array",
+                      items: {
+                        type: "string",
+                        enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                      },
+                    },
+                    keys: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string", format: "uuid" },
+                          service: { type: "string" },
+                          status: { type: "string" },
+                          failures: { type: "integer" },
+                          code: { type: ["integer", "null"] },
+                          created_at: { type: "string", format: "date-time" },
+                          last_used: { type: ["string", "null"], format: "date-time" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Valid Supabase session required" },
+        },
+      },
+      post: {
+        operationId: "savePersonalProviderKey",
+        summary: "Save a personal provider key",
+        security: [{ supabaseSessionAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["service", "key"],
+                properties: {
+                  service: {
+                    type: "string",
+                    enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                  },
+                  key: { type: "string", maxLength: 500 },
                 },
               },
             },

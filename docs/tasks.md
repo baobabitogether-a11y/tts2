@@ -141,3 +141,11 @@ go on.
 ```
 
 **Status: In progress.** Retried the experimental Supabase CLI startup mode; it fails with the same Realtime migrator DB connection timeout. GitHub authentication is still unavailable. No new application changes are justified until local networking or external credentials are available; the tests and isolated database checks already pass.
+
+### 13. Continue
+
+```text
+go on.
+```
+
+**Status: Done for API documentation coverage.** Auditing the public contract found that token-creation responses were nested under `requestBody`, token revocation was nested under the create operation, and the shared-key management and canonical OpenAPI routes were absent from the spec. Corrected the operation structure, documented shared-key management without returning secret fields, and added regression tests for route coverage, top-level operation responses, and security-sensitive response shapes. All 35 tests pass; the production build and `npx drizzle-kit check` pass. The dev HTTP smoke test confirms six API paths and 13 operations, each with a top-level responses object, and `/docs` renders the new operations. The production preview script itself is mismatched with this Cloudflare build output; see [codespace.md](./codespace.md). Full local Supabase and real provider audio remain blocked.
