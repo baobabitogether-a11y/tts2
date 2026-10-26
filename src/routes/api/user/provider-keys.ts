@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { addUserKey, KEY_SERVICES, listUserKeys, removeUserKey, type KeyService } from "@/lib/openrouter-pool.server";
+import {
+  addUserKey,
+  hasSupabaseAdminConfig,
+  KEY_SERVICES,
+  listUserKeys,
+  removeUserKey,
+  type KeyService,
+} from "@/lib/openrouter-pool.server";
 import { requireSupabaseUser, UserAuthError } from "@/lib/user-account.server";
 
 const CORS = {
@@ -9,6 +16,12 @@ const CORS = {
 };
 
 async function handle(request: Request) {
+  if (!hasSupabaseAdminConfig()) {
+    return Response.json(
+      { error: "Account provider keys require Supabase." },
+      { status: 503, headers: CORS },
+    );
+  }
   try {
     const userId = await requireSupabaseUser(request);
     if (request.method === "GET") {

@@ -7,6 +7,9 @@ export type KeyService = typeof KEY_SERVICES[number];
 type Row = Database['public']['Tables']['provider_api_keys']['Row'];
 type UserRow = Database['public']['Tables']['user_provider_api_keys']['Row'];
 const encoder = new TextEncoder();
+export function hasSupabaseAdminConfig() {
+  return Boolean(process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"]);
+}
 const bytes = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const base64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 

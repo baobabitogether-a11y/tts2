@@ -240,7 +240,15 @@ function Account() {
       <h1 className="mt-5 text-2xl font-semibold">Your Speak API account</h1>
       {loadingSession ? <p className="mt-5 text-sm text-muted-foreground">Loading account…</p> : authUnavailable ? (
         <p role="alert" className="mt-5 text-sm text-destructive">
-          Account authentication couldn’t be initialized: {authUnavailable}
+          {authUnavailable.startsWith("Missing Supabase environment variable") ? (
+            <>
+              Account features require Supabase and aren’t available in this deployment. Public
+              speech requests can still use Google or server-configured provider keys.{" "}
+              {authUnavailable}
+            </>
+          ) : (
+            <>Account authentication could not be initialized: {authUnavailable}</>
+          )}
         </p>
       ) : !session ? (
         <section className="mt-6 max-w-md">

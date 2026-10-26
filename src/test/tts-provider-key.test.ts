@@ -8,10 +8,25 @@ const poolState = vi.hoisted(() => ({
   userLookups: [] as string[],
   userMarked: [] as Array<[string, string, number]>,
   poolReads: 0,
+  supabaseConfigured: true,
 }));
 
 vi.mock("@/lib/openrouter-pool.server", () => ({
   KEY_SERVICES: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+  hasSupabaseAdminConfig: () => poolState.supabaseConfigured,
+  environmentKeys: (service: string) => {
+    const name = service.toUpperCase();
+    return [
+      ...new Set(
+        [
+          process.env[`${name}_API_KEY`] || "",
+          ...(process.env[`${name}_API_KEYS`] || "").split(/[\s,]+/),
+        ]
+          .map((key) => key.trim())
+          .filter(Boolean),
+      ),
+    ];
+  },
   poolRows: async () => {
     poolState.poolReads++;
     if (poolState.error) throw poolState.error;
@@ -40,8 +55,13 @@ beforeEach(() => {
   poolState.userLookups = [];
   poolState.userMarked = [];
   poolState.poolReads = 0;
+  poolState.supabaseConfigured = true;
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 
 describe("provider API key errors", () => {
   it("explains that OpenRouter needs a key when saved keys cannot be loaded", async () => {
@@ -83,6 +103,78 @@ describe("provider API key errors", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/audio/speech", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer openai-test" }),
     }));
+  });
+
+  it("uses server-configured provider keys without connecting to Supabase", async () => {
+    poolState.supabaseConfigured = false;
+    vi.stubEnv("OPENAI_API_KEY", "server-openai-key");
+    const authorizationHeaders: Array<string | null> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      authorizationHeaders.push(new Headers(init?.headers).get("Authorization"));
+      return new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "audio/mpeg" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({ text: "Bonjour", lang: "fr", provider: "openai" });
+
+    expect(result).toMatchObject({ provider: "openai", mime: "audio/mpeg" });
+    expect(authorizationHeaders[0]?.startsWith("Bearer ")).toBe(true);
+    expect(poolState.poolReads).toBe(0);
+  });
+
+  it("does not use shared environment keys for personal-token requests without Supabase", async () => {
+    poolState.supabaseConfigured = false;
+    vi.stubEnv("OPENAI_API_KEY", "server-openai-key");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      synthesize({
+        text: "Private request",
+        lang: "en",
+        provider: "openai",
+        userId: "owner-a",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("keys saved to that account"),
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(poolState.userLookups).toEqual(["owner-a"]);
+  });
+
+  it("fails over across environment keys in Auto mode without Supabase", async () => {
+    poolState.supabaseConfigured = false;
+    vi.stubEnv("OPENAI_API_KEY", "server-openai-key");
+    vi.stubEnv("GEMINI_API_KEY", "server-gemini-key");
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const encodedPcm = btoa(String.fromCharCode(0, 0, 1, 0));
+    const geminiApiKeys: Array<string | null> = [];
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes("api.openai.com")) {
+        return Response.json({ error: "rate limit" }, { status: 429 });
+      }
+      geminiApiKeys.push(new Headers(init?.headers).get("x-goog-api-key"));
+      return Response.json({
+        candidates: [
+          {
+            content: {
+              parts: [{ inlineData: { data: encodedPcm, mimeType: "audio/pcm;rate=24000" } }],
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({ text: "Ciao", lang: "it", provider: "auto" });
+
+    expect(result.provider).toBe("gemini");
+    expect(geminiApiKeys[0]).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(poolState.poolReads).toBe(0);
+    expect(poolState.marked).toEqual([]);
   });
 
   it("calls ElevenLabs with a voice ID and returns MP3 audio", async () => {

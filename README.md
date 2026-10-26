@@ -29,6 +29,12 @@ Environment variables accept one key or a comma/whitespace-separated key list:
 
 Saved keys require `OPENROUTER_KEY_ENCRYPTION_SECRET`. Protect key management and the JSON usage endpoint with `PROVIDER_MANAGEMENT_TOKEN` (or the legacy `OPENROUTER_MANAGEMENT_TOKEN`). The report endpoint is `GET /api/public/usage?hours=24`; it returns JSON grouped by the provider that actually served each request, with character counts, estimated and provider-reported tokens, audio bytes, cache hits, and latency.
 
+### Run without Supabase
+
+Public synthesis can run without Supabase. Google TTS works without credentials; other providers and `auto` routing use server-configured provider keys from the environment variables above. In this mode keys are not saved or health-tracked, and `auto` retries configured keys for the current request only.
+
+Account sign-in, personal API tokens, saved provider keys, and persistent usage reports require Supabase. Recent request history remains available at `/history` for the current server instance only.
+
 ## Using the API from an external agent
 
 Give the agent these endpoints:

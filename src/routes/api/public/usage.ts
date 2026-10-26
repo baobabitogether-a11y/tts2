@@ -26,6 +26,15 @@ export const Route = createFileRoute("/api/public/usage")({
           }
         }
         if (!userId && !await pool.authorizeManagement(request)) return Response.json({ error: "Management authorization required" }, { status: 401, headers: CORS });
+        if (!pool.hasSupabaseAdminConfig()) {
+          return Response.json(
+            {
+              error:
+                "Persistent usage reports require Supabase. See /history for recent requests on this server instance.",
+            },
+            { status: 503, headers: CORS },
+          );
+        }
         const requested = Number(new URL(request.url).searchParams.get("hours")) || 24;
         const windowHours = Math.max(1, Math.min(720, Math.floor(requested)));
         try {

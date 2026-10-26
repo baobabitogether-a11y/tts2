@@ -5,6 +5,15 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods
 async function handle(request: Request) {
   const pool = await import('@/lib/openrouter-pool.server');
   if (!await pool.authorizeManagement(request)) return Response.json({ error: 'Enter your management token or a configured server provider key' }, { status: 401, headers: CORS });
+  if (!pool.hasSupabaseAdminConfig()) {
+    return Response.json(
+      {
+        error:
+          "Saved provider key management requires Supabase; configure provider keys through server environment variables instead.",
+      },
+      { status: 503, headers: CORS },
+    );
+  }
   try {
     const url = new URL(request.url);
     const requestedService = request.method === 'DELETE' ? url.searchParams.get('service') : undefined;

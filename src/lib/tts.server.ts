@@ -243,9 +243,32 @@ async function elevenLabsTts(text: string, lang: string, voice = "JBFqnCBsd6RMkj
 }
 
 // ---------------- Persistent OpenRouter key pool ----------------
-import { KEY_SERVICES, poolRows, reserveKey, reserveAnyKey, decryptKey, markKey, userKeyRows, reserveUserKey, reserveAnyUserKey, markUserKey, type KeyService } from './openrouter-pool.server';
+import {
+  KEY_SERVICES,
+  environmentKeys,
+  hasSupabaseAdminConfig,
+  poolRows,
+  reserveKey,
+  reserveAnyKey,
+  decryptKey,
+  markKey,
+  userKeyRows,
+  reserveUserKey,
+  reserveAnyUserKey,
+  markUserKey,
+  type KeyService,
+} from "./openrouter-pool.server";
 export const startedAt = Date.now();
 const BLOCKED = new Set([401, 402, 403, 429]);
+
+function shuffled<T>(values: T[]): T[] {
+  const result = [...values];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j]!, result[i]!];
+  }
+  return result;
+}
 
 async function withProviderKey<T>(service: KeyService, apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>, userId?: string): Promise<T> {
   const supplied = apiKey?.trim();
@@ -254,13 +277,51 @@ async function withProviderKey<T>(service: KeyService, apiKey: string | undefine
     if (!response.ok) throw new HttpError(response.status, `${service} rejected the request (HTTP ${response.status})`);
     return parse(response);
   }
+  if (!userId && !hasSupabaseAdminConfig()) {
+    const keys = shuffled(environmentKeys(service));
+    if (!keys.length) {
+      throw new HttpError(400, providerKeySetupMessage(service, false, Boolean(userId), false));
+    }
+    let lastStatus = 503;
+    for (const key of keys) {
+      let response: Response;
+      try {
+        response = await fn(key);
+      } catch {
+        lastStatus = 502;
+        continue;
+      }
+      if (response.ok) {
+        try {
+          return await parse(response);
+        } catch (error) {
+          lastStatus = 502;
+          if (error instanceof HttpError && error.status < 500) throw error;
+          continue;
+        }
+      }
+      lastStatus = response.status;
+      await response.body?.cancel();
+      if (BLOCKED.has(response.status) || response.status >= 500) continue;
+      throw new HttpError(
+        response.status,
+        `${service} rejected the request (HTTP ${response.status})`,
+      );
+    }
+    throw new HttpError(
+      lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502,
+      `All ${service} environment keys failed (HTTP ${lastStatus})`,
+    );
+  }
   let all: Array<{ id: string; ciphertext: string }>;
   try {
     all = userId ? await userKeyRows(userId, service) : await poolRows(service);
   } catch {
-    throw new HttpError(503, providerKeySetupMessage(service, true, Boolean(userId)));
+    throw new HttpError(503, providerKeySetupMessage(service, true, Boolean(userId), true));
   }
-  if (!all.length) throw new HttpError(400, providerKeySetupMessage(service, false, Boolean(userId)));
+  if (!all.length) {
+    throw new HttpError(400, providerKeySetupMessage(service, false, Boolean(userId), true));
+  }
   const attempted: string[] = [];
   let lastStatus = 503;
   for (let attempt = 0; attempt < all.length; attempt++) {
@@ -298,7 +359,12 @@ async function withProviderKey<T>(service: KeyService, apiKey: string | undefine
   throw new HttpError(lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502, `All ${service} keys failed (HTTP ${lastStatus})`);
 }
 
-function providerKeySetupMessage(service: KeyService, savedKeysUnavailable: boolean, userOwned = false) {
+function providerKeySetupMessage(
+  service: KeyService,
+  savedKeysUnavailable: boolean,
+  userOwned = false,
+  supabaseAvailable = true,
+) {
   const labels: Record<KeyService, string> = {
     openrouter: 'OpenRouter',
     lovable: 'Lovable AI',
@@ -309,7 +375,7 @@ function providerKeySetupMessage(service: KeyService, savedKeysUnavailable: bool
   const envName = service.toUpperCase();
   const setup = userOwned
     ? "Add a provider API key in your account. Personal API tokens only use keys saved to that account."
-    : `Set ${envName}_API_KEY or ${envName}_API_KEYS, or add a saved provider key.`;
+    : `Set ${envName}_API_KEY or ${envName}_API_KEYS${supabaseAvailable ? ", or add a saved provider key" : ""}.`;
   return `${labels[service]} requires an API key. ${savedKeysUnavailable ? `Saved keys could not be loaded. ` : ''}${setup}`;
 }
 
@@ -356,7 +422,31 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
   const request = target && target !== input.lang
     ? { ...input, text: await googleTranslate(input.text, input.lang, target), lang: target, targetLang: undefined }
     : input;
-  if (!input.userId) {
+  if (!input.userId && !hasSupabaseAdminConfig()) {
+    const candidates = shuffled(
+      KEY_SERVICES.flatMap((service) =>
+        environmentKeys(service).map((apiKey) => ({ service, apiKey })),
+      ),
+    );
+    if (!candidates.length) {
+      throw new HttpError(
+        400,
+        "Auto routing without Supabase requires at least one provider key configured through server environment variables.",
+      );
+    }
+    let lastError: unknown;
+    for (const { service, apiKey } of candidates) {
+      try {
+        return await synthesize({ ...request, provider: service, apiKey });
+      } catch (error) {
+        const status = error instanceof HttpError ? error.status : 599;
+        lastError = error;
+        if (error instanceof HttpError && !BLOCKED.has(status) && status < 500) throw error;
+      }
+    }
+    if (lastError) throw lastError;
+  }
+  if (!input.userId && hasSupabaseAdminConfig()) {
     try {
       await poolRows();
     } catch {
