@@ -1,6 +1,6 @@
 // Server-only TTS + translation providers.
 import { speechBody } from './fish-audio';
-export type Provider = "auto" | "google" | "lovable" | "openrouter" | "gemini" | "openai" | "elevenlabs";
+export type Provider = "auto" | "google" | "lovable" | "openrouter" | "gemini" | "openai" | "elevenlabs" | "deepgram" | "azure" | "googlecloud";
 export type TtsInput = {
   text: string;
   lang: string;
@@ -305,6 +305,9 @@ function providerKeySetupMessage(service: KeyService, savedKeysUnavailable: bool
     gemini: 'Google Gemini',
     openai: 'OpenAI',
     elevenlabs: 'ElevenLabs',
+    deepgram: 'Deepgram',
+    azure: 'Azure Speech',
+    googlecloud: 'Google Cloud TTS',
   };
   const envName = service.toUpperCase();
   const setup = userOwned
@@ -404,7 +407,7 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
   let usage: ProviderUsage | undefined;
   const target = input.targetLang?.trim();
   if (target && target !== input.lang) {
-    if (input.provider === "google" || input.provider === "gemini" || input.provider === "openai" || input.provider === "elevenlabs") text = await googleTranslate(text, input.lang, target);
+    if (input.provider === "google" || input.provider === "gemini" || input.provider === "openai" || input.provider === "elevenlabs" || input.provider === "deepgram" || input.provider === "azure" || input.provider === "googlecloud") text = await googleTranslate(text, input.lang, target);
     else {
       const translated = input.provider === "lovable"
         ? await lovableTranslate(text, input.lang, target, input.apiKey, input.userId)

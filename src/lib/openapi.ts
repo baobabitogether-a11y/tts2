@@ -2,7 +2,7 @@ const params = {
   text: { type: "string", description: "Text to speak (max 5000 chars)" },
   lang: { type: "string", description: "Source language as a YouTube-supported language code or BCP-47 tag (for example en, zh-Hant, es-419, or pt-BR). Language codes are passed through to the selected provider.", example: "en" },
   target_lang: { type: "string", description: "Optional YouTube-supported language code or BCP-47 tag. If set, text is translated before speaking.", example: "fr-CA" },
-  provider: { type: "string", enum: ["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"], default: "google", description: "Auto randomly selects a configured provider key without recent auth/quota failures. Providers are Google, Lovable, OpenRouter, Gemini, OpenAI, and ElevenLabs." },
+  provider: { type: "string", enum: ["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"], default: "google", description: "Auto randomly selects a configured provider key without recent auth/quota failures. Providers are Google, Lovable, OpenRouter, Gemini, OpenAI, ElevenLabs, Deepgram, Azure Speech, and Google Cloud TTS." },
   api_key: { type: "string", description: "API key for the selected keyed provider. Omit to use server-configured keys for public requests. Personal API tokens must omit this field and use account-owned keys. Prefer POST over GET when supplying a key to avoid URL logging." },
   voice: {
     type: "string",
@@ -37,7 +37,7 @@ const params = {
 const audioSuccessResponse = {
   description: "Encoded audio, or a JSON object when format=json. Auto selects a keyed provider without recent auth/quota failures; Google is not included because it does not use API keys.",
   headers: {
-    "X-Provider": { schema: { type: "string", enum: ["google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"] }, description: "Provider that generated the audio, including the provider selected by Auto." },
+    "X-Provider": { schema: { type: "string", enum: ["google", "lovable", "openrouter", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, description: "Provider that generated the audio, including the provider selected by Auto." },
   },
   content: {
     "audio/mpeg": { schema: { type: "string", format: "binary" } },
@@ -179,7 +179,7 @@ export const openApiSpec = {
         summary: "List personal provider keys",
         security: [{ supabaseSessionAuth: [] }],
         responses: {
-          "200": { description: "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.", content: { "application/json": { schema: { type: "object", properties: { services: { type: "array", items: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"] } }, keys: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, service: { type: "string" }, status: { type: "string" }, failures: { type: "integer" }, code: { type: ["integer", "null"] }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" } } } } } } } },
+          "200": { description: "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.", content: { "application/json": { schema: { type: "object", properties: { services: { type: "array", items: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] } }, keys: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, service: { type: "string" }, status: { type: "string" }, failures: { type: "integer" }, code: { type: ["integer", "null"] }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" } } } } } } } },
           "401": { description: "Valid Supabase session required" },
         },
       },
@@ -187,7 +187,7 @@ export const openApiSpec = {
         operationId: "savePersonalProviderKey",
         summary: "Save a personal provider key",
         security: [{ supabaseSessionAuth: [] }],
-        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"] }, key: { type: "string", maxLength: 500 } } } } },
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, key: { type: "string", maxLength: 500 } } } } },
         responses: { "201": { description: "Provider key saved and encrypted" }, "409": { description: "Key already saved for this account" }, "401": { description: "Valid Supabase session required" } },
       },
       delete: {
