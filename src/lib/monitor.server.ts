@@ -3,6 +3,7 @@ export type HistoryEntry = {
   at: string;
   method: string;
   provider: string;
+  userId?: string | undefined;
   lang: string;
   target_lang?: string;
   status: number;
@@ -13,8 +14,8 @@ export type HistoryEntry = {
   inputChars?: number;
   outputChars?: number;
   estimatedInputTokens?: number;
-  providerInputTokens?: number;
-  providerOutputTokens?: number;
+  providerInputTokens?: number | undefined;
+  providerOutputTokens?: number | undefined;
 };
 
 const HISTORY_MAX = 500;
@@ -27,6 +28,7 @@ export async function record(e: HistoryEntry) {
     await supabaseAdmin.from('provider_usage_events').insert({
       method: e.method,
       service: e.provider.slice(0, 40),
+      user_id: e.userId ?? null,
       status: e.status,
       duration_ms: Math.max(0, Math.round(e.ms)),
       audio_bytes: Math.max(0, e.bytes),
@@ -42,7 +44,7 @@ export async function record(e: HistoryEntry) {
   }
 }
 
-type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string; provider?: string; usage?: { inputTokens?: number; outputTokens?: number } };
+type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string; provider: string; usage?: { inputTokens?: number | undefined; outputTokens?: number | undefined } | undefined };
 const CACHE_MAX_BYTES = 50 * 1024 * 1024;
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const cache = new Map<string, { v: CacheVal; at: number }>();

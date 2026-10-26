@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
 import { openApiSpec } from "@/lib/openapi";
@@ -96,7 +96,7 @@ function Index() {
       setLastRequest({
         method: "POST",
         url: "/api/public/tts",
-        body: { ...body, ...(body.api_key ? { api_key: "[redacted]" } : {}) },
+        body: { ...body, ...(body["api_key"] ? { api_key: "[redacted]" } : {}) },
       });
       const res = await fetch("/api/public/tts", {
         method: "POST",
@@ -110,7 +110,7 @@ function Index() {
         try {
           responseBody = JSON.parse(responseText);
           if (responseBody && typeof responseBody === "object" && "error" in responseBody) {
-            const error = responseBody.error;
+            const error = responseBody["error"];
             message = typeof error === "string" ? error : JSON.stringify(error);
           }
         } catch {
@@ -151,6 +151,9 @@ function Index() {
       <p className="mt-2 text-sm text-muted-foreground">
         Text → (translate) → audio. CORS open. Spec: <a className="underline" href="/api/public/openapi.json">/api/public/openapi.json</a>
       </p>
+      <nav className="mt-3 flex gap-4 text-sm text-muted-foreground">
+        <Link to="/account" className="underline hover:text-foreground">Create account / manage keys</Link>
+      </nav>
 
       <section className="mt-10 space-y-3">
         <label className="block text-xs text-muted-foreground">

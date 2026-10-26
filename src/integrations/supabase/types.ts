@@ -62,6 +62,84 @@ export type Database = {
         }
         Relationships: []
       }
+      user_provider_api_keys: {
+        Row: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ciphertext: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          ciphertext?: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint?: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_api_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used: string | null
+          revoked_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       provider_key_rotation: {
         Row: { cursor: number; service: string }
         Insert: { cursor?: number; service: string }
@@ -83,6 +161,7 @@ export type Database = {
           provider_output_tokens: number | null
           service: string
           status: number
+          user_id: string | null
         }
         Insert: {
           audio_bytes?: number
@@ -98,6 +177,7 @@ export type Database = {
           provider_output_tokens?: number | null
           service: string
           status: number
+          user_id?: string | null
         }
         Update: {
           audio_bytes?: number
@@ -113,6 +193,7 @@ export type Database = {
           provider_output_tokens?: number | null
           service?: string
           status?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -183,7 +264,7 @@ export type Database = {
         Returns: undefined
       }
       provider_usage_report: {
-        Args: { window_hours?: number }
+        Args: { window_hours?: number; report_user_id?: string | null }
         Returns: Json
       }
       reserve_provider_key: {
@@ -205,6 +286,30 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      reserve_user_provider_key: {
+        Args: { excluded_keys?: string[]; owner_id: string; service_name: string }
+        Returns: Database['public']['Tables']['user_provider_api_keys']['Row'][]
+        SetofOptions: {
+          from: "*"
+          to: "user_provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_any_user_provider_key: {
+        Args: { excluded_keys?: string[]; owner_id: string }
+        Returns: Database['public']['Tables']['user_provider_api_keys']['Row'][]
+        SetofOptions: {
+          from: "*"
+          to: "user_provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mark_user_provider_key: {
+        Args: { key_id: string; owner_id: string; response_code: number }
+        Returns: undefined
       }
       mark_openrouter_key: {
         Args: { key_id: string; response_code: number }

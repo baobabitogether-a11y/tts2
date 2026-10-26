@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { synthesize, HttpError, bytesToB64 } from "@/lib/tts.server";
 import { record, cacheGet, cacheSet } from "@/lib/monitor.server";
+import { resolveApiUser, UserAuthError } from "@/lib/user-account.server";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,10 +19,11 @@ const optionsSchema = z
       .max(2000)
       .transform((s, ctx) => {
         try {
-          const v: unknown = JSON.parse(s);
-          if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
+          const parsed: unknown = JSON.parse(s);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
         } catch {
-          v = undefined;
+          ctx.addIssue({ code: "custom", message: "options must be a JSON object" });
+          return z.NEVER;
         }
         ctx.addIssue({ code: "custom", message: "options must be a JSON object" });
         return z.NEVER;
@@ -41,18 +43,21 @@ const schema = z.object({
   format: z.enum(["binary", "json"]).default("binary"),
 });
 
-async function handle(raw: Record<string, unknown>, method: string) {
+async function handle(raw: Record<string, unknown>, method: string, userId?: string) {
   const t0 = Date.now();
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    await record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
+    await record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), userId, status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
     return Response.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS });
   }
   const p = parsed.data;
+  if (userId && p.api_key) {
+    return Response.json({ error: "Personal API tokens use provider keys saved to the account; omit api_key." }, { status: 400, headers: CORS });
+  }
   const base = { method, provider: p.provider, lang: p.lang, ...(p.target_lang ? { target_lang: p.target_lang } : {}) };
   const key = JSON.stringify([p.provider, p.lang, p.target_lang || "", p.voice || "", p.speed ?? "", p.options ?? null, p.text]);
   try {
-    let r = p.provider === "auto" ? undefined : cacheGet(key);
+    let r = p.provider === "auto" || userId ? undefined : cacheGet(key);
     const cached = !!r;
     if (!r) {
       r = await synthesize({
@@ -60,16 +65,18 @@ async function handle(raw: Record<string, unknown>, method: string) {
         lang: p.lang,
         targetLang: p.target_lang || undefined,
         provider: p.provider,
+        userId,
         apiKey: p.api_key || undefined,
         voice: p.voice || undefined,
         speed: p.speed,
         options: p.options,
       });
-      if (p.provider !== "auto") cacheSet(key, r);
+      if (p.provider !== "auto" && !userId) cacheSet(key, r);
     }
     await record({
       at: new Date().toISOString(),
       ...base,
+      userId,
       provider: r.provider,
       status: 200,
       ms: Date.now() - t0,
@@ -97,7 +104,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
     const status = e instanceof HttpError ? e.status : 500;
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error(e);
-    await record({ at: new Date().toISOString(), ...base, status, ms: Date.now() - t0, bytes: 0, cached: false, error: msg.slice(0, 200), inputChars: p.text.length, estimatedInputTokens: Math.ceil(p.text.length / 4) });
+    await record({ at: new Date().toISOString(), ...base, userId, status, ms: Date.now() - t0, bytes: 0, cached: false, error: msg.slice(0, 200), inputChars: p.text.length, estimatedInputTokens: Math.ceil(p.text.length / 4) });
     return Response.json({ error: msg }, { status, headers: CORS });
   }
 }
@@ -106,7 +113,16 @@ export const Route = createFileRoute("/api/public/tts")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
-      GET: async ({ request }) => handle(Object.fromEntries(new URL(request.url).searchParams), "GET"),
+      GET: async ({ request }) => {
+        let userId: string | null = null;
+        try {
+          userId = await resolveApiUser(request);
+        } catch (error) {
+          const status = error instanceof UserAuthError ? error.status : 503;
+          return Response.json({ error: status === 401 ? "Invalid personal API token" : "Could not authenticate request" }, { status, headers: CORS });
+        }
+        return handle(Object.fromEntries(new URL(request.url).searchParams), "GET", userId ?? undefined);
+      },
       POST: async ({ request }) => {
         let body: Record<string, unknown> = {};
         try {
@@ -114,7 +130,14 @@ export const Route = createFileRoute("/api/public/tts")({
         } catch {
           return Response.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS });
         }
-        return handle(body, "POST");
+        let userId: string | null = null;
+        try {
+          userId = await resolveApiUser(request);
+        } catch (error) {
+          const status = error instanceof UserAuthError ? error.status : 503;
+          return Response.json({ error: status === 401 ? "Invalid personal API token" : "Could not authenticate request" }, { status, headers: CORS });
+        }
+        return handle(body, "POST", userId ?? undefined);
       },
     },
   },
