@@ -105,6 +105,37 @@ describe("provider API key errors", () => {
     }));
   });
 
+  it("uses a supplied key instead of Supabase-saved keys", async () => {
+    poolState.supabaseConfigured = true;
+    const authorizationHeaders: Array<string | null> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      authorizationHeaders.push(new Headers(init?.headers).get("Authorization"));
+      return new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "audio/mpeg" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({
+      text: "Bonjour",
+      lang: "fr",
+      provider: "openai",
+      apiKey: "one-request-key",
+    });
+
+    expect(result.provider).toBe("openai");
+    expect(authorizationHeaders).toEqual(["Bearer one-request-key"]);
+    expect(poolState.poolReads).toBe(0);
+  });
+
+  it("rejects an API key with Auto instead of silently ignoring it", async () => {
+    await expect(
+      synthesize({ text: "Hello", lang: "en", provider: "auto", apiKey: "one-request-key" }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("specific keyed provider"),
+    });
+    expect(poolState.poolReads).toBe(0);
+  });
+
   it("uses server-configured provider keys without connecting to Supabase", async () => {
     poolState.supabaseConfigured = false;
     vi.stubEnv("OPENAI_API_KEY", "server-openai-key");

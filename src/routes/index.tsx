@@ -168,7 +168,12 @@ function Index() {
             <option value="elevenlabs">ElevenLabs</option>
           </select>
         </label>
-        {form.provider === "auto" && <p className="text-xs text-muted-foreground">Auto randomly selects a configured provider key that has no recent authentication or quota failures.</p>}
+        {form.provider === "auto" && (
+          <p className="text-xs text-muted-foreground">
+            Auto randomly selects a configured provider key that has no recent authentication or
+            quota failures. To supply your own key for one request, select its specific provider.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -216,8 +221,15 @@ function Index() {
             {form.provider === "openrouter" && (
               <>
                 <label className="block text-xs text-muted-foreground">
-                  API key (optional)
-                  <input className={`${field} mt-1`} type="password" autoComplete="off" placeholder="Use configured server keys" value={form.api_key} onChange={set("api_key")} />
+                  API key (optional; overrides configured keys for this request)
+                  <input
+                    className={`${field} mt-1`}
+                    type="password"
+                    autoComplete="off"
+                    placeholder="Use configured keys, or enter a one-request override"
+                    value={form.api_key}
+                    onChange={set("api_key")}
+                  />
                 </label>
                 <label className="block text-xs text-muted-foreground">
                   OpenRouter model
@@ -230,12 +242,21 @@ function Index() {
                 </label>
               </>
             )}
-            {form.provider !== "google" && form.provider !== "auto" && form.provider !== "openrouter" && (
-              <label className="block text-xs text-muted-foreground">
-                API key (optional)
-                <input className={`${field} mt-1`} type="password" autoComplete="off" placeholder="Use configured provider keys" value={form.api_key} onChange={set("api_key")} />
-              </label>
-            )}
+            {form.provider !== "google" &&
+              form.provider !== "auto" &&
+              form.provider !== "openrouter" && (
+                <label className="block text-xs text-muted-foreground">
+                  API key (optional; overrides configured keys for this request)
+                  <input
+                    className={`${field} mt-1`}
+                    type="password"
+                    autoComplete="off"
+                    placeholder="Use configured keys, or enter a one-request override"
+                    value={form.api_key}
+                    onChange={set("api_key")}
+                  />
+                </label>
+              )}
             <label className="block text-xs text-muted-foreground">
               Speed: {form.speed}x
               <input className="w-full accent-foreground" type="range" min="0.25" max="4" step="0.25" value={form.speed} onChange={set("speed")} />

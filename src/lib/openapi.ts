@@ -22,7 +22,7 @@ const params = {
   api_key: {
     type: "string",
     description:
-      "API key for the selected keyed provider. Omit to use server-configured keys for public requests. Personal API tokens must omit this field and use account-owned keys. Prefer POST over GET when supplying a key to avoid URL logging.",
+      "API key for the selected keyed provider. This per-request key takes precedence over saved and server-configured keys and is not stored. Omit to use configured keys. Requires an explicit keyed provider (not auto or google). Personal API tokens must omit this field and use account-owned keys. Prefer POST or the X-Provider-API-Key header to avoid URL logging.",
   },
   voice: {
     type: "string",
@@ -145,15 +145,25 @@ export const openApiSpec = {
       get: {
         operationId: "synthesizeSpeechFromQuery",
         summary: "Synthesize speech (query params)",
-        parameters: Object.entries(params).map(([name, schema]) => ({
-          name,
-          in: "query",
-          required: name === "text" || name === "lang",
-          schema:
-            name === "options"
-              ? { type: "string", description: "URL-encoded JSON object of provider options." }
-              : schema,
-        })),
+        parameters: [
+          ...Object.entries(params).map(([name, schema]) => ({
+            name,
+            in: "query",
+            required: name === "text" || name === "lang",
+            schema:
+              name === "options"
+                ? { type: "string", description: "URL-encoded JSON object of provider options." }
+                : schema,
+          })),
+          {
+            name: "X-Provider-API-Key",
+            in: "header",
+            required: false,
+            description:
+              "Per-request provider key; overrides saved and server-configured keys. Use with a specific keyed provider, not Auto or Google. Header takes precedence over api_key.",
+            schema: { type: "string" },
+          },
+        ],
         responses: {
           "200": audioSuccessResponse,
           "400": {
@@ -169,6 +179,16 @@ export const openApiSpec = {
       post: {
         operationId: "synthesizeSpeech",
         summary: "Synthesize speech (JSON body)",
+        parameters: [
+          {
+            name: "X-Provider-API-Key",
+            in: "header",
+            required: false,
+            description:
+              "Per-request provider key; overrides saved and server-configured keys. Use with a specific keyed provider, not Auto or Google. Header takes precedence over api_key.",
+            schema: { type: "string" },
+          },
+        ],
         requestBody: {
           required: true,
           content: {

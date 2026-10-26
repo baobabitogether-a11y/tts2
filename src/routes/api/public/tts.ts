@@ -43,21 +43,47 @@ const schema = z.object({
   format: z.enum(["binary", "json"]).default("binary"),
 });
 
-async function handle(raw: Record<string, unknown>, method: string, userId?: string) {
+async function handle(
+  raw: Record<string, unknown>,
+  method: string,
+  userId?: string,
+  headerApiKey?: string,
+) {
+  const request = headerApiKey?.trim() ? { ...raw, api_key: headerApiKey.trim() } : raw;
   const t0 = Date.now();
-  const parsed = schema.safeParse(raw);
+  const parsed = schema.safeParse(request);
   if (!parsed.success) {
-    await record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), userId, status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
+    await record({
+      at: new Date().toISOString(),
+      method,
+      provider: String(request["provider"] ?? ""),
+      lang: String(request["lang"] ?? ""),
+      userId,
+      status: 400,
+      ms: 0,
+      bytes: 0,
+      cached: false,
+      error: "invalid input",
+    });
     return Response.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS });
   }
   const p = parsed.data;
+  if (p.api_key && (p.provider === "auto" || p.provider === "google")) {
+    return Response.json(
+      {
+        error:
+          "A per-request API key requires a specific keyed provider; Auto and Google do not accept api_key.",
+      },
+      { status: 400, headers: CORS },
+    );
+  }
   if (userId && p.api_key) {
     return Response.json({ error: "Personal API tokens use provider keys saved to the account; omit api_key." }, { status: 400, headers: CORS });
   }
   const base = { method, provider: p.provider, lang: p.lang, ...(p.target_lang ? { target_lang: p.target_lang } : {}) };
   const key = JSON.stringify([p.provider, p.lang, p.target_lang || "", p.voice || "", p.speed ?? "", p.options ?? null, p.text]);
   try {
-    let r = p.provider === "auto" || userId ? undefined : cacheGet(key);
+    let r = p.provider === "auto" || userId || p.api_key ? undefined : cacheGet(key);
     const cached = !!r;
     if (!r) {
       r = await synthesize({
@@ -71,7 +97,7 @@ async function handle(raw: Record<string, unknown>, method: string, userId?: str
         speed: p.speed,
         options: p.options,
       });
-      if (p.provider !== "auto" && !userId) cacheSet(key, r);
+      if (p.provider !== "auto" && !userId && !p.api_key) cacheSet(key, r);
     }
     await record({
       at: new Date().toISOString(),
@@ -121,7 +147,12 @@ export const Route = createFileRoute("/api/public/tts")({
           const status = error instanceof UserAuthError ? error.status : 503;
           return Response.json({ error: status === 401 ? "Invalid personal API token" : "Could not authenticate request" }, { status, headers: CORS });
         }
-        return handle(Object.fromEntries(new URL(request.url).searchParams), "GET", userId ?? undefined);
+        return handle(
+          Object.fromEntries(new URL(request.url).searchParams),
+          "GET",
+          userId ?? undefined,
+          request.headers.get("X-Provider-API-Key") ?? undefined,
+        );
       },
       POST: async ({ request }) => {
         let body: Record<string, unknown> = {};
@@ -137,7 +168,12 @@ export const Route = createFileRoute("/api/public/tts")({
           const status = error instanceof UserAuthError ? error.status : 503;
           return Response.json({ error: status === 401 ? "Invalid personal API token" : "Could not authenticate request" }, { status, headers: CORS });
         }
-        return handle(body, "POST", userId ?? undefined);
+        return handle(
+          body,
+          "POST",
+          userId ?? undefined,
+          request.headers.get("X-Provider-API-Key") ?? undefined,
+        );
       },
     },
   },

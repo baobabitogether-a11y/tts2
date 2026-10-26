@@ -56,6 +56,8 @@ Content-Type: application/json
 {"text":"Ciao, come stai?","lang":"it","provider":"auto"}
 ```
 
+To use your own provider key for just one request, select the matching provider and send `api_key` in the POST JSON body, or send it in the `X-Provider-API-Key` header. This per-request key takes precedence over saved and server-configured keys and is not stored. Do not combine a one-request key with `provider: "auto"`; Auto cannot determine which provider the key belongs to. Avoid putting keys in GET query strings because URLs may be logged.
+
 This project was built with [Lovable](https://lovable.dev).
 
 **Live app**: https://tts2.lovable.app

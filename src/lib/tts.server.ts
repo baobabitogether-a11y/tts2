@@ -418,6 +418,12 @@ async function openrouterTts(text: string, lang: string, voice?: string, apiKey?
 }
 
 async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
+  if (input.apiKey?.trim()) {
+    throw new HttpError(
+      400,
+      "A per-request API key requires a specific keyed provider; Auto cannot determine which provider the key belongs to.",
+    );
+  }
   const target = input.targetLang?.trim();
   const request = target && target !== input.lang
     ? { ...input, text: await googleTranslate(input.text, input.lang, target), lang: target, targetLang: undefined }
