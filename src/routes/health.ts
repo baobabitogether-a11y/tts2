@@ -22,7 +22,7 @@ export const Route = createFileRoute("/health")({
         const { cacheInfo, history } = await import('@/lib/monitor.server');
         const { poolRows, publicKey, decryptKey } = await import('@/lib/openrouter-pool.server');
         const up = Math.floor((Date.now() - startedAt) / 1000);
-        const keys = await poolRows();
+        const keys = await poolRows('openrouter');
         const openrouter = await Promise.all(
           keys.map(async (k, i) => ({
             position: i,

@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      provider_api_keys: {
+        Row: {
+          ciphertext: string
+          code: number | null
+          created_at: string
+          failures: number
+          fingerprint: string
+          id: string
+          in_flight: number
+          last_used: string | null
+          quarantined_until: string | null
+          rotation_order: number
+          service: string
+          source: string
+          status: string
+        }
+        Insert: {
+          ciphertext: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          ciphertext?: string
+          code?: number | null
+          created_at?: string
+          failures?: number
+          fingerprint?: string
+          id?: string
+          in_flight?: number
+          last_used?: string | null
+          quarantined_until?: string | null
+          rotation_order?: number
+          service?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      provider_key_rotation: {
+        Row: { cursor: number; service: string }
+        Insert: { cursor?: number; service: string }
+        Update: { cursor?: number; service?: string }
+        Relationships: []
+      }
+      provider_usage_events: {
+        Row: {
+          audio_bytes: number
+          cached: boolean
+          duration_ms: number
+          estimated_input_tokens: number
+          id: number
+          input_chars: number
+          method: string
+          occurred_at: string
+          output_chars: number
+          provider_input_tokens: number | null
+          provider_output_tokens: number | null
+          service: string
+          status: number
+        }
+        Insert: {
+          audio_bytes?: number
+          cached?: boolean
+          duration_ms?: number
+          estimated_input_tokens?: number
+          id?: number
+          input_chars?: number
+          method: string
+          occurred_at?: string
+          output_chars?: number
+          provider_input_tokens?: number | null
+          provider_output_tokens?: number | null
+          service: string
+          status: number
+        }
+        Update: {
+          audio_bytes?: number
+          cached?: boolean
+          duration_ms?: number
+          estimated_input_tokens?: number
+          id?: number
+          input_chars?: number
+          method?: string
+          occurred_at?: string
+          output_chars?: number
+          provider_input_tokens?: number | null
+          provider_output_tokens?: number | null
+          service?: string
+          status?: number
+        }
+        Relationships: []
+      }
       openrouter_keys: {
         Row: {
           ciphertext: string
@@ -76,6 +178,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      mark_provider_key: {
+        Args: { key_id: string; response_code: number }
+        Returns: undefined
+      }
+      provider_usage_report: {
+        Args: { window_hours?: number }
+        Returns: Json
+      }
+      reserve_provider_key: {
+        Args: { excluded_keys?: string[]; service_name: string }
+        Returns: Database['public']['Tables']['provider_api_keys']['Row'][]
+        SetofOptions: {
+          from: "*"
+          to: "provider_api_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       mark_openrouter_key: {
         Args: { key_id: string; response_code: number }
         Returns: undefined
