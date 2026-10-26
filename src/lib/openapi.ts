@@ -1,3 +1,31 @@
+const keyedProviders = [
+  "openrouter",
+  "lovable",
+  "gemini",
+  "openai",
+  "elevenlabs",
+  "deepgram",
+] as const;
+const ttsProviders = [
+  "auto",
+  "google",
+  "lovable",
+  "openrouter",
+  "gemini",
+  "openai",
+  "elevenlabs",
+  "deepgram",
+] as const;
+const audioProviders = [
+  "google",
+  "lovable",
+  "openrouter",
+  "gemini",
+  "openai",
+  "elevenlabs",
+  "deepgram",
+] as const;
+
 const params = {
   text: {
     type: "string",
@@ -22,10 +50,10 @@ const params = {
   },
   provider: {
     type: "string",
-    enum: ["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"],
+    enum: ttsProviders,
     default: "google",
     description:
-      "Auto randomly selects a configured provider key without recent auth/quota failures. Providers are Google, Lovable, OpenRouter, Gemini, OpenAI, and ElevenLabs.",
+      "Auto randomly selects a configured provider key without recent auth/quota failures. Providers are Google, Lovable, OpenRouter, Gemini, OpenAI, ElevenLabs, and Deepgram.",
   },
   api_key: {
     type: "string",
@@ -37,7 +65,7 @@ const params = {
     type: "string",
     maxLength: 50,
     description:
-      "Provider-specific voice. Gemini: prebuilt voice name (default Kore). OpenAI: voice name (default coral). ElevenLabs: voice ID (default JBFqnCBsd6RMkjVDRZzb). OpenRouter: provider-specific voice ID; Fish Audio chooses a licensed voice matching lang when available. Auto ignores this field.",
+      "Provider-specific voice. Gemini: prebuilt voice name (default Kore). OpenAI: voice name (default coral). ElevenLabs: voice ID (default JBFqnCBsd6RMkjVDRZzb). Deepgram: Aura model ID; defaults by lang for English, Spanish, German, Dutch, French, Italian, and Japanese, otherwise English. OpenRouter: provider-specific voice ID; Fish Audio chooses a licensed voice matching lang when available. Auto ignores this field.",
   },
   speed: {
     type: "number",
@@ -45,7 +73,7 @@ const params = {
     maximum: 4,
     default: 1,
     description:
-      "Speech rate multiplier (0.25–4). Supported directly by Google, OpenAI, and OpenRouter; other providers may clamp or ignore it.",
+      "Speech rate multiplier (0.25–4). Supported directly by Google, OpenAI, OpenRouter, and Deepgram; other providers may clamp or ignore it.",
   },
   options: {
     type: "object",
@@ -53,12 +81,16 @@ const params = {
     properties: {
       model: {
         type: "string",
-        default: "fish-audio/s2.1-pro-free:free",
         description:
-          "Provider-specific model override. OpenRouter defaults to Fish Audio S2.1 Pro Free; OpenAI to gpt-4o-mini-tts; Gemini to gemini-2.5-flash-preview-tts; ElevenLabs to eleven_multilingual_v2.",
+          "Provider-specific model override. OpenRouter defaults to Fish Audio S2.1 Pro Free; OpenAI to gpt-4o-mini-tts; Gemini to gemini-2.5-flash-preview-tts; ElevenLabs to eleven_multilingual_v2; Deepgram to an Aura-2 voice selected by language.",
       },
       instructions: { type: "string", description: "Optional OpenAI speech style instructions." },
       voice_id: { type: "string", description: "Optional ElevenLabs voice ID override." },
+      encoding: { type: "string", description: "Deepgram output encoding (for example mp3, linear16, or opus)." },
+      container: { type: "string", description: "Deepgram output container (for example wav or ogg)." },
+      sample_rate: { type: "integer", description: "Deepgram output sample rate, where supported by the encoding." },
+      bit_rate: { type: "integer", description: "Deepgram output bit rate, where supported by the encoding." },
+      mip_opt_out: { type: "boolean", description: "Deepgram Model Improvement Program opt-out setting." },
     },
     description: "Provider-specific settings. For GET requests, pass as a URL-encoded JSON string.",
   },
@@ -77,7 +109,7 @@ const audioSuccessResponse = {
     "X-Provider": {
       schema: {
         type: "string",
-        enum: ["google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"],
+        enum: audioProviders,
       },
       description: "Provider that generated the audio, including the provider selected by Auto.",
     },
@@ -85,6 +117,7 @@ const audioSuccessResponse = {
   content: {
     "audio/mpeg": { schema: { type: "string", format: "binary" } },
     "audio/wav": { schema: { type: "string", format: "binary" } },
+    "audio/*": { schema: { type: "string", format: "binary" } },
     "application/json": {
       schema: {
         type: "object",
@@ -259,7 +292,7 @@ export const openApiSpec = {
             required: false,
             schema: {
               type: "string",
-              enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+              enum: keyedProviders,
               default: "openrouter",
             },
           },
@@ -318,7 +351,7 @@ export const openApiSpec = {
                 properties: {
                   service: {
                     type: "string",
-                    enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                    enum: keyedProviders,
                   },
                   key: { type: "string", maxLength: 500 },
                   reset: {
@@ -359,7 +392,7 @@ export const openApiSpec = {
             required: false,
             schema: {
               type: "string",
-              enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+              enum: keyedProviders,
               default: "openrouter",
             },
           },
@@ -500,7 +533,7 @@ export const openApiSpec = {
                       type: "array",
                       items: {
                         type: "string",
-                        enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                        enum: keyedProviders,
                       },
                     },
                     keys: {
@@ -540,7 +573,7 @@ export const openApiSpec = {
                 properties: {
                   service: {
                     type: "string",
-                    enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+                    enum: keyedProviders,
                   },
                   key: { type: "string", maxLength: 500 },
                 },

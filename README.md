@@ -5,10 +5,11 @@ create a fullstack app. on the frontend be minimalistic and expose an open-api i
 Enable CORS on all backend endpoints (handling OPTIONS preflight, Access-Control-Allow-Origin: *, headers, and methods so external clients can call it).
 
 on the backend create an endpoint to fetch audio based on:
+
 - text
 - lang
 - target lang (utilize translation if target lang is specified)
-- service provider name (`auto`, Google, Lovable, OpenRouter, Gemini, OpenAI, or ElevenLabs)
+- service provider name (`auto`, Google, Lovable, OpenRouter, Gemini, OpenAI, ElevenLabs, or Deepgram Aura)
 - optional provider API key
 
 For keyed providers, keys can be supplied in the request, stored in the encrypted provider-key pool, or configured through environment variables. Auto randomly selects a configured key that is not currently marked blocked/quarantined, and tries another key/provider after authentication, quota, or availability failures. Exact credit balances are provider-specific and are not polled by Auto.
@@ -26,8 +27,11 @@ Environment variables accept one key or a comma/whitespace-separated key list:
 - `GEMINI_API_KEY` / `GEMINI_API_KEYS`
 - `OPENAI_API_KEY` / `OPENAI_API_KEYS`
 - `ELEVENLABS_API_KEY` / `ELEVENLABS_API_KEYS`
+- `DEEPGRAM_API_KEY` / `DEEPGRAM_API_KEYS`
 
 Saved keys require `OPENROUTER_KEY_ENCRYPTION_SECRET`. Protect key management and the JSON usage endpoint with `PROVIDER_MANAGEMENT_TOKEN` (or the legacy `OPENROUTER_MANAGEMENT_TOKEN`). The report endpoint is `GET /api/public/usage?hours=24`; it returns JSON grouped by the provider that actually served each request, with character counts, estimated and provider-reported tokens, audio bytes, cache hits, and latency.
+
+Deepgram uses an Aura-2 voice matching English, Spanish, German, Dutch, French, Italian, or Japanese when possible; other languages default to English. Supply an Aura model ID with `options.model` or `voice` to override the default. Deepgram supports the shared `speed` setting and output options such as `encoding`, `container`, `sample_rate`, `bit_rate`, and `mip_opt_out`.
 
 ### Run without Supabase
 

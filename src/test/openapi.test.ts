@@ -15,10 +15,16 @@ describe("public OpenAPI specification", () => {
       "gemini",
       "openai",
       "elevenlabs",
+      "deepgram",
     ]);
     expect(
-      openApiSpec.paths["/api/public/tts"].get.responses["200"].headers["X-Provider"],
+      openApiSpec.paths["/api/public/tts"].post.responses["200"].content["audio/*"],
     ).toBeDefined();
+    expect(
+      openApiSpec.paths["/api/public/tts"].get.responses["200"].headers["X-Provider"],
+    ).toMatchObject({
+      schema: { enum: expect.arrayContaining(["deepgram"]) },
+    });
     expect(openApiSpec.paths["/api/public/tts"].post.parameters[0]?.name).toBe(
       "X-Provider-API-Key",
     );
@@ -78,6 +84,19 @@ describe("public OpenAPI specification", () => {
     expect(keyManagement.get.security).toEqual([{ bearerAuth: [] }]);
     expect(keyManagement.post.security).toEqual([{ bearerAuth: [] }]);
     expect(keyManagement.delete.security).toEqual([{ bearerAuth: [] }]);
+    expect(
+      keyManagement.get.parameters.find((parameter) => parameter.name === "service")?.schema.enum,
+    ).toContain("deepgram");
+    expect(
+      keyManagement.post.requestBody.content["application/json"].schema.properties.service.enum,
+    ).toContain("deepgram");
+    expect(
+      keyManagement.delete.parameters.find((parameter) => parameter.name === "service")?.schema.enum,
+    ).toContain("deepgram");
+    expect(
+      openApiSpec.paths["/api/user/provider-keys"].post.requestBody.content["application/json"].schema
+        .properties.service.enum,
+    ).toContain("deepgram");
     expect(
       keyManagement.get.responses["200"].content["application/json"].schema.properties.keys.items
         .properties,

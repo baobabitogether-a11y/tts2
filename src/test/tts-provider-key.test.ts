@@ -12,7 +12,14 @@ const poolState = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/openrouter-pool.server", () => ({
-  KEY_SERVICES: ["openrouter", "lovable", "gemini", "openai", "elevenlabs"],
+  KEY_SERVICES: [
+    "openrouter",
+    "lovable",
+    "gemini",
+    "openai",
+    "elevenlabs",
+    "deepgram",
+  ],
   hasSupabaseAdminConfig: () => poolState.supabaseConfigured,
   environmentKeys: (service: string) => {
     const name = service.toUpperCase();
@@ -217,6 +224,57 @@ describe("provider API key errors", () => {
     expect(result.provider).toBe("elevenlabs");
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/text-to-speech/voice-id?");
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ "xi-api-key": "eleven-test" });
+  });
+
+  it("calls Deepgram with a language-matched Aura model and supports output options", async () => {
+    poolState.supabaseConfigured = false;
+    vi.stubEnv("DEEPGRAM_API_KEY", "deepgram-test");
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "audio/wav" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({
+      text: "Bonjour",
+      lang: "fr-CA",
+      provider: "deepgram",
+      speed: 1.25,
+      options: { encoding: "linear16", container: "wav", sample_rate: 24000 },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const parsedUrl = new URL(String(url));
+    expect(result).toMatchObject({ provider: "deepgram", mime: "audio/wav" });
+    expect(parsedUrl.origin + parsedUrl.pathname).toBe("https://api.deepgram.com/v1/speak");
+    expect(parsedUrl.searchParams.get("model")).toBe("aura-2-agathe-fr");
+    expect(parsedUrl.searchParams.get("speed")).toBe("1.25");
+    expect(parsedUrl.searchParams.get("encoding")).toBe("linear16");
+    expect(parsedUrl.searchParams.get("container")).toBe("wav");
+    expect(parsedUrl.searchParams.get("sample_rate")).toBe("24000");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Token deepgram-test");
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "Bonjour" });
+    expect(poolState.poolReads).toBe(0);
+  });
+
+  it("includes Deepgram in Auto routing for environment-configured keys", async () => {
+    poolState.supabaseConfigured = false;
+    vi.stubEnv("DEEPGRAM_API_KEY", "deepgram-test");
+    const fetchMock = vi.fn(async () =>
+      new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "audio/mpeg" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({
+      text: "Hello",
+      lang: "en",
+      provider: "auto",
+    });
+
+    expect(result.provider).toBe("deepgram");
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Token deepgram-test",
+    );
+    expect(poolState.poolReads).toBe(0);
   });
 
   it("wraps Gemini PCM as WAV and reports provider token usage", async () => {

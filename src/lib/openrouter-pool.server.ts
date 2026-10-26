@@ -2,7 +2,14 @@ import type { Database } from '@/integrations/supabase/types';
 
 export const QUARANTINE_AFTER = 10;
 export const QUARANTINE_MS = 15 * 60 * 1000;
-export const KEY_SERVICES = ['openrouter', 'lovable', 'gemini', 'openai', 'elevenlabs'] as const;
+export const KEY_SERVICES = [
+  "openrouter",
+  "lovable",
+  "gemini",
+  "openai",
+  "elevenlabs",
+  "deepgram",
+] as const;
 export type KeyService = typeof KEY_SERVICES[number];
 type Row = Database['public']['Tables']['provider_api_keys']['Row'];
 type UserRow = Database['public']['Tables']['user_provider_api_keys']['Row'];
@@ -37,11 +44,12 @@ export async function fingerprintProviderKey(value: string) {
 }
 export function environmentKeys(service: KeyService = 'openrouter') {
   const names: Record<KeyService, string> = {
-    openrouter: 'OPENROUTER',
-    lovable: 'LOVABLE',
-    gemini: 'GEMINI',
-    openai: 'OPENAI',
-    elevenlabs: 'ELEVENLABS',
+    openrouter: "OPENROUTER",
+    lovable: "LOVABLE",
+    gemini: "GEMINI",
+    openai: "OPENAI",
+    elevenlabs: "ELEVENLABS",
+    deepgram: "DEEPGRAM",
   };
   const name = names[service];
   const values = [process.env[`${name}_API_KEY`] || '', ...(process.env[`${name}_API_KEYS`] || '').split(/[\s,]+/)];

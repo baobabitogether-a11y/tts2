@@ -40,6 +40,7 @@ const services = [
   ["gemini", "Google Gemini"],
   ["openai", "OpenAI"],
   ["elevenlabs", "ElevenLabs"],
+  ["deepgram", "Deepgram"],
 ] as const;
 const field = "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
 

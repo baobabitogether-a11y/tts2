@@ -1,6 +1,14 @@
 // Server-only TTS + translation providers.
 import { speechBody } from './fish-audio';
-export type Provider = "auto" | "google" | "lovable" | "openrouter" | "gemini" | "openai" | "elevenlabs";
+export type Provider =
+  | "auto"
+  | "google"
+  | "lovable"
+  | "openrouter"
+  | "gemini"
+  | "openai"
+  | "elevenlabs"
+  | "deepgram";
 export type TtsInput = {
   text: string;
   lang: string;
@@ -242,6 +250,58 @@ async function elevenLabsTts(text: string, lang: string, voice = "JBFqnCBsd6RMkj
   }), async response => new Uint8Array(await response.arrayBuffer()), userId);
 }
 
+const deepgramModels: Record<string, string> = {
+  en: "aura-2-thalia-en",
+  es: "aura-2-celeste-es",
+  de: "aura-2-helena-de",
+  nl: "aura-2-rhea-nl",
+  fr: "aura-2-agathe-fr",
+  it: "aura-2-maia-it",
+  ja: "aura-2-ama-ja",
+};
+
+async function deepgramTts(
+  text: string,
+  lang: string,
+  voice?: string,
+  apiKey?: string,
+  speed?: number,
+  options?: Record<string, unknown>,
+  userId?: string,
+) {
+  const model =
+    (typeof options?.["model"] === "string" && options["model"]) ||
+    voice ||
+    deepgramModels[lang.toLowerCase().split("-")[0] ?? ""] ||
+    "aura-2-thalia-en";
+  const query = new URLSearchParams({ model });
+  if (speed !== undefined) query.set("speed", String(speed));
+  for (const name of ["encoding", "container", "sample_rate", "bit_rate", "mip_opt_out"]) {
+    const value = options?.[name];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      query.set(name, String(value));
+    }
+  }
+  return withProviderKey(
+    "deepgram",
+    apiKey,
+    (key) =>
+      fetch(`https://api.deepgram.com/v1/speak?${query}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      }),
+    async (response) => ({
+      audio: new Uint8Array(await response.arrayBuffer()),
+      mime: response.headers.get("content-type") || "audio/mpeg",
+    }),
+    userId,
+  );
+}
+
 // ---------------- Persistent OpenRouter key pool ----------------
 import {
   KEY_SERVICES,
@@ -371,6 +431,7 @@ function providerKeySetupMessage(
     gemini: 'Google Gemini',
     openai: 'OpenAI',
     elevenlabs: 'ElevenLabs',
+    deepgram: 'Deepgram',
   };
   const envName = service.toUpperCase();
   const setup = userOwned
@@ -500,7 +561,14 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
   let usage: ProviderUsage | undefined;
   const target = input.targetLang?.trim();
   if (target && target !== input.lang) {
-    if (input.provider === "google" || input.provider === "gemini" || input.provider === "openai" || input.provider === "elevenlabs") text = await googleTranslate(text, input.lang, target);
+    if (
+      input.provider === "google" ||
+      input.provider === "gemini" ||
+      input.provider === "openai" ||
+      input.provider === "elevenlabs" ||
+      input.provider === "deepgram"
+    )
+      text = await googleTranslate(text, input.lang, target);
     else {
       const translated = input.provider === "lovable"
         ? await lovableTranslate(text, input.lang, target, input.apiKey, input.userId)
@@ -524,6 +592,18 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
   }
   if (input.provider === "elevenlabs") {
     return { audio: await elevenLabsTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "elevenlabs", usage };
+  }
+  if (input.provider === "deepgram") {
+    const r = await deepgramTts(
+      text,
+      lang,
+      input.voice,
+      input.apiKey,
+      input.speed,
+      input.options,
+      input.userId,
+    );
+    return { ...r, text, lang, provider: "deepgram", usage };
   }
   return { audio: await openrouterTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "openrouter", usage };
 }

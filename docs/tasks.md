@@ -12,12 +12,12 @@ without silently rewriting prior prompt history. Do not record secrets.
 
 ## Active work
 
-| Request                                                                      | Status      | Evidence / next step                                                                                                                                                                                                                                                                                 |
-| ---------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provide a browsable OpenAPI reference and keep the JSON contract accessible. | Done        | `/docs` is derived from `src/lib/openapi.ts`; `/api/public/openapi.json` and the page were smoke-tested over HTTP. Commit `07a77c0`.                                                                                                                                                                 |
-| Implement roadmap work in reasonable priority order.                         | In progress | Multilingual Fish Audio and persistent encrypted provider-key features are implemented. The five ordered Drizzle migrations and key-pool RPC behavior passed against the Supabase Postgres image; `32` tests pass. Remaining full-stack and real-audio checks are blocked.                           |
-| Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. Regular, database-only, experimental, and host-network startup attempts did not work; published host-port Postgres connectivity works. See [codespace.md](./codespace.md). |
-| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                                              |
+| Request                                                                      | Status      | Evidence / next step                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provide a browsable OpenAPI reference and keep the JSON contract accessible. | Done        | `/docs` is derived from `src/lib/openapi.ts`; `/api/public/openapi.json` and the page were smoke-tested over HTTP. Commit `07a77c0`.                                                                                                                                                                                                                                    |
+| Implement roadmap work in reasonable priority order.                         | In progress | Added Deepgram Aura as a provider with language-based models, speed/output options, Auto routing, environment/shared/personal key support, account management, OpenAPI documentation, and migration `0005`. `37` tests, build, and Drizzle migration checks pass. Real audio still needs a Deepgram key; full Supabase remains blocked by Codespaces Docker networking. |
+| Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. Regular, database-only, experimental, and host-network startup attempts did not work; published host-port Postgres connectivity works. See [codespace.md](./codespace.md).                                                                    |
+| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                                                                                                                 |
 
 ## Raw prompt history
 
@@ -165,3 +165,17 @@ go on.
 ```
 
 **Status: Done for provider request-bound documentation.** Compared OpenAPI limits with the TTS route's Zod schema and documented the enforced text, language, target-language, API-key, voice, and GET-options limits, including the header API key limit. Added assertions to the OpenAPI tests. All 35 tests pass; ESLint, Prettier, production build, and Drizzle check pass. Redocly validates the served JSON with only the same two advisory warnings (the project has no declared license, so do not invent one, and the OpenAPI endpoint has no meaningful 4xx response). Full local Supabase, real provider audio, and GitHub publishing remain blocked.
+
+### 16. Continue with Deepgram
+
+```text
+go on.
+```
+
+Scope confirmation:
+
+```text
+deepgram
+```
+
+**Status: Implemented and locally verified.** Added the Deepgram Aura TTS adapter using its documented REST endpoint and `Token` authorization, language-matched Aura-2 defaults for English, Spanish, German, Dutch, French, Italian, and Japanese, explicit model override, supported speed and output query options, and response MIME propagation. Added Deepgram to server environment keys, shared/personal key storage and management, Auto routing, playground choices, account UI, request validation, and all relevant OpenAPI schemas. Migration `0005` extends provider constraints and shared Auto reservation; it was executed against disposable PostgreSQL, including an Auto reservation check. `37` tests, production build, Drizzle checks, served `/docs` and OpenAPI smoke tests, and Redocly validation pass. Redocly retains two advisory warnings (undeclared license and no 4xx response for the public spec endpoint). The Deepgram HTTP request is mocked in tests; real synthesis requires a Deepgram API key. Full local Supabase remains blocked by Docker bridge networking.

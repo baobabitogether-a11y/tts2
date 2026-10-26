@@ -9,9 +9,17 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Speak API — Text to speech with translation" },
-      { name: "description", content: "Open API for text-to-speech via Google, Lovable AI or OpenRouter, with optional translation." },
+      {
+        name: "description",
+        content:
+          "Open API for text-to-speech via Google, Lovable AI, OpenRouter, Gemini, OpenAI, ElevenLabs, and Deepgram, with optional translation.",
+      },
       { property: "og:title", content: "Speak API" },
-      { property: "og:description", content: "Text-to-speech API with translation. Google, Lovable AI, OpenRouter." },
+      {
+        property: "og:description",
+        content:
+          "Text-to-speech API with translation across Google, Lovable AI, OpenRouter, Gemini, OpenAI, ElevenLabs, and Deepgram.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -169,6 +177,7 @@ function Index() {
             <option value="gemini">Google Gemini</option>
             <option value="openai">OpenAI GPT</option>
             <option value="elevenlabs">ElevenLabs</option>
+            <option value="deepgram">Deepgram Aura</option>
           </select>
         </label>
         {form.provider === "auto" && (
@@ -217,8 +226,13 @@ function Index() {
           <div className="mt-3 space-y-3">
             {form.provider !== "auto" && form.provider !== "google" && (
               <label className="block text-xs text-muted-foreground">
-                Voice (optional)
-                <input className={`${field} mt-1`} placeholder="Use provider default" value={form.voice} onChange={set("voice")} />
+                {form.provider === "deepgram" ? "Aura model (optional)" : "Voice (optional)"}
+                <input
+                  className={`${field} mt-1`}
+                  placeholder={form.provider === "deepgram" ? "Use language default, e.g. aura-2-thalia-en" : "Use provider default"}
+                  value={form.voice}
+                  onChange={set("voice")}
+                />
               </label>
             )}
             {form.provider === "openrouter" && (
