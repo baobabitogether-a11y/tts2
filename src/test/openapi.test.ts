@@ -34,7 +34,11 @@ describe("public OpenAPI specification", () => {
     const usage = openApiSpec.paths["/api/public/usage"].get;
     const report = usage.responses["200"].content["application/json"].schema;
 
-    expect(usage.security).toEqual([{ bearerAuth: [] }]);
+    expect(usage.security).toEqual([
+      { personalApiTokenAuth: [] },
+      { supabaseSessionAuth: [] },
+      { bearerAuth: [] },
+    ]);
     expect(report.properties.totals.properties.input_chars).toBeDefined();
     expect(report.properties.totals.properties.provider_output_tokens).toBeDefined();
     expect(report.properties.services.items.properties.service).toBeDefined();
@@ -52,6 +56,9 @@ describe("public OpenAPI specification", () => {
     expect(openApiSpec.paths["/api/public/openapi.json"].get.operationId).toBe(
       "getOpenApiDocument",
     );
+    expect(openApiSpec.paths["/api/public/tts"].get.security).toEqual([]);
+    expect(openApiSpec.paths["/api/public/tts"].post.security).toEqual([]);
+    expect(openApiSpec.paths["/api/public/openapi.json"].get.security).toEqual([]);
   });
 
   it("documents the secured shared-provider key management API without exposing credentials", () => {
@@ -77,6 +84,10 @@ describe("public OpenAPI specification", () => {
       type: "string",
       maxLength: 500,
     });
+    expect(keyManagement.post.requestBody.content["application/json"].schema.anyOf).toEqual([
+      { required: ["key"] },
+      { required: ["reset"] },
+    ]);
   });
 
   it("keeps every operation's request body and responses at the correct OpenAPI level", () => {

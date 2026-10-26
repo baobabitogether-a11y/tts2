@@ -145,6 +145,7 @@ export const openApiSpec = {
       get: {
         operationId: "synthesizeSpeechFromQuery",
         summary: "Synthesize speech (query params)",
+        security: [],
         parameters: [
           ...Object.entries(params).map(([name, schema]) => ({
             name,
@@ -179,6 +180,7 @@ export const openApiSpec = {
       post: {
         operationId: "synthesizeSpeech",
         summary: "Synthesize speech (JSON body)",
+        security: [],
         parameters: [
           {
             name: "X-Provider-API-Key",
@@ -209,6 +211,7 @@ export const openApiSpec = {
       get: {
         operationId: "getOpenApiDocument",
         summary: "Get the canonical OpenAPI document",
+        security: [],
         responses: {
           "200": {
             description: "Current Speak API contract in OpenAPI 3.1 JSON format.",
@@ -224,6 +227,7 @@ export const openApiSpec = {
               },
             },
           },
+          "500": { description: "Could not generate the OpenAPI document" },
         },
       },
     },
@@ -296,6 +300,7 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
+                anyOf: [{ required: ["key"] }, { required: ["reset"] }],
                 properties: {
                   service: {
                     type: "string",
@@ -359,7 +364,7 @@ export const openApiSpec = {
         summary: "Get provider usage statistics",
         description:
           "Returns parsable JSON aggregates by actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage.",
-        security: [{ bearerAuth: [] }],
+        security: [{ personalApiTokenAuth: [] }, { supabaseSessionAuth: [] }, { bearerAuth: [] }],
         parameters: [
           {
             name: "hours",
@@ -563,6 +568,12 @@ export const openApiSpec = {
         bearerFormat: "JWT",
         description:
           "Supabase access token from the signed-in user's session. Required for account management endpoints.",
+      },
+      personalApiTokenAuth: {
+        type: "http",
+        scheme: "bearer",
+        description:
+          "Personal API token created from the signed-in user's account. Usage reports are scoped to that user.",
       },
     },
   },

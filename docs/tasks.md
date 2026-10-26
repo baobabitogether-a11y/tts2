@@ -149,3 +149,11 @@ go on.
 ```
 
 **Status: Done for API documentation coverage.** Auditing the public contract found that token-creation responses were nested under `requestBody`, token revocation was nested under the create operation, and the shared-key management and canonical OpenAPI routes were absent from the spec. Corrected the operation structure, documented shared-key management without returning secret fields, and added regression tests for route coverage, top-level operation responses, and security-sensitive response shapes. All 35 tests pass; the production build and `npx drizzle-kit check` pass. The dev HTTP smoke test confirms six API paths and 13 operations, each with a top-level responses object, and `/docs` renders the new operations. The production preview script itself is mismatched with this Cloudflare build output; see [codespace.md](./codespace.md). Full local Supabase and real provider audio remain blocked.
+
+### 14. Continue
+
+```text
+go on.
+```
+
+**Status: Done for OpenAPI linter/security validation.** Redocly identified missing explicit security declarations on public operations and an incomplete description of usage authentication. Added `security: []` for unauthenticated TTS/spec operations and documented personal-token, Supabase-session, or management-bearer authentication for usage. Constrained shared-key POST input to require either `key` or `reset`. All 35 tests pass; Redocly validates the served contract with two advisory warnings (license not declared, and the always-successful spec endpoint has no 4xx response). Build validation is being rerun for this continuation. Full local Supabase and real provider audio remain blocked.
