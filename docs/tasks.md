@@ -125,3 +125,11 @@ AGENTS.md -  manage docs/*.md such as docs/codespace.md - maintain knowledge bas
 ```
 
 **Status: Done.** Added this task ledger and Codespaces troubleshooting guidance. The broader roadmap remains in progress; continue its blocked local Supabase and synthesis verification when the required environment is available.
+
+### 11. Continue roadmap work
+
+```text
+go on
+```
+
+**Status: In progress.** Tested whether Docker host-gateway forwarding could bypass the blocked bridge. The host gateway is reachable, but the Supabase migrator's `db` entry is in a Docker-managed read-only hosts file, so the CLI cannot use that route. Added the confirmed limitation to [codespace.md](./codespace.md); database migrations/RPCs remain verified against the disposable Supabase Postgres image. Full local Supabase and real provider audio remain blocked.

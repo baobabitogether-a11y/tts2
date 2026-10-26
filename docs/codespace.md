@@ -35,10 +35,17 @@ configuration is wrong.
 4. `npx supabase start --network-id host` is not a workaround here: the CLI
    requires network-scoped aliases, which Docker's built-in `host` network
    does not support.
-5. The host can reach a published local Postgres port. This is useful for
-   isolated migration and SQL/RPC checks, but does **not** make the Supabase
-   Auth/REST stack or end-to-end app integration available.
-6. Trying a different non-overlapping bridge subnet did not restore
+5. A bridge container can connect through the Docker host gateway to a
+   published Postgres port when `host.docker.internal` is explicitly mapped.
+   This is useful for isolated migration and SQL/RPC checks, but does **not**
+   make the Supabase Auth/REST stack or end-to-end app integration available.
+6. This host-gateway probe does not unblock the Supabase CLI: its temporary
+   Realtime migrator connects to the hostname `db`, and Docker manages the
+   migrator's `/etc/hosts` as a read-only mount. `docker exec` cannot edit it,
+   and `docker cp` cannot replace it (`device or resource busy`). Do not try to
+   redirect the CLI this way unless its container supports an explicit
+   `--add-host` mapping.
+7. Trying a different non-overlapping bridge subnet did not restore
    container-to-container TCP. Do not spend time repeating the probe with more
    arbitrary subnets unless the Docker daemon/network policy changes.
 
