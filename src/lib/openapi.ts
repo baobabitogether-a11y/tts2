@@ -197,6 +197,7 @@ export const openApiSpec = {
         parameters: [{ name: "id", in: "query", required: true, schema: { type: "string", format: "uuid" } }],
         responses: { "200": { description: "Provider key removed" }, "404": { description: "Key not found for this user" }, "401": { description: "Valid Supabase session required" } },
       },
+    },
   },
   components: {
     securitySchemes: {
