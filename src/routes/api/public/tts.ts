@@ -81,7 +81,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
       providerInputTokens: cached ? undefined : r.usage?.inputTokens,
       providerOutputTokens: cached ? undefined : r.usage?.outputTokens,
     });
-    const extra = { "X-Cache": cached ? "HIT" : "MISS" };
+    const extra = { "X-Cache": cached ? "HIT" : "MISS", "X-Provider": r.provider };
     if (p.format === "json")
       return Response.json({ audio: bytesToB64(r.audio), mime: r.mime, text: r.text, lang: r.lang, provider: r.provider, usage: r.usage }, { headers: { ...CORS, ...extra } });
     return new Response(r.audio as BodyInit, {
@@ -91,7 +91,6 @@ async function handle(raw: Record<string, unknown>, method: string) {
         "Content-Type": r.mime,
         "X-Spoken-Text": encodeURIComponent(r.text.slice(0, 2000)),
         "X-Spoken-Lang": r.lang,
-        "X-Provider": r.provider,
       },
     });
   } catch (e) {

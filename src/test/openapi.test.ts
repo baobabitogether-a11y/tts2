@@ -7,6 +7,8 @@ describe("public OpenAPI specification", () => {
 
     expect(provider.enum).toEqual(["auto", "google", "lovable", "openrouter", "gemini", "openai", "elevenlabs"]);
     expect(openApiSpec.paths["/api/public/tts"].get.responses["200"].headers["X-Provider"]).toBeDefined();
+    expect(openApiSpec.servers[0]?.url).toBe("https://tts2.lovable.app");
+    expect(openApiSpec.paths["/api/public/tts"].post.operationId).toBe("synthesizeSpeech");
   });
 
   it("documents authenticated machine-readable usage aggregates", () => {

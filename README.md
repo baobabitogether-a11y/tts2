@@ -29,6 +29,27 @@ Environment variables accept one key or a comma/whitespace-separated key list:
 
 Saved keys require `OPENROUTER_KEY_ENCRYPTION_SECRET`. Protect key management and the JSON usage endpoint with `PROVIDER_MANAGEMENT_TOKEN` (or the legacy `OPENROUTER_MANAGEMENT_TOKEN`). The report endpoint is `GET /api/public/usage?hours=24`; it returns JSON grouped by the provider that actually served each request, with character counts, estimated and provider-reported tokens, audio bytes, cache hits, and latency.
 
+## Using the API from an external agent
+
+Give the agent these endpoints:
+
+- OpenAPI contract: `https://tts2.lovable.app/api/public/openapi.json`
+- Speech request: `POST https://tts2.lovable.app/api/public/tts`
+
+Suggested agent instruction:
+
+> Use the Speak API OpenAPI contract at `https://tts2.lovable.app/api/public/openapi.json`. To generate speech, POST JSON to `/api/public/tts` with `text` and `lang`. Use `provider: "auto"` to select among configured healthy keyed providers; if Auto reports that no provider key is configured, use `provider: "google"` or ask the service owner to configure provider keys. Add `target_lang` only when translation is requested. The default response is audio bytes; play or save them using the returned Content-Type. Read `X-Provider` to identify the provider. Use `format: "json"` when you need a JSON response containing base64 audio and response metadata. Never ask the user for server secrets or call `/api/public/usage` unless the owner supplied an authorized management bearer token.
+
+Example request:
+
+```http
+POST /api/public/tts HTTP/1.1
+Host: tts2.lovable.app
+Content-Type: application/json
+
+{"text":"Ciao, come stai?","lang":"it","provider":"auto"}
+```
+
 This project was built with [Lovable](https://lovable.dev).
 
 **Live app**: https://tts2.lovable.app

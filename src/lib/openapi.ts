@@ -96,9 +96,11 @@ const usageReportSchema = {
 export const openApiSpec = {
   openapi: "3.1.0",
   info: { title: "Speak API", version: "1.0.0", description: "Text-to-speech with optional translation. CORS enabled." },
+  servers: [{ url: "https://tts2.lovable.app", description: "Speak API production server" }],
   paths: {
     "/api/public/tts": {
       get: {
+        operationId: "synthesizeSpeechFromQuery",
         summary: "Synthesize speech (query params)",
         parameters: Object.entries(params).map(([name, schema]) => ({
           name,
@@ -114,6 +116,7 @@ export const openApiSpec = {
         },
       },
       post: {
+        operationId: "synthesizeSpeech",
         summary: "Synthesize speech (JSON body)",
         requestBody: {
           required: true,
@@ -129,6 +132,7 @@ export const openApiSpec = {
     },
     "/api/public/usage": {
       get: {
+        operationId: "getProviderUsageReport",
         summary: "Get provider usage statistics",
         description: "Returns parsable JSON aggregates by actual provider. Requires a management bearer token.",
         security: [{ bearerAuth: [] }],
@@ -143,7 +147,7 @@ export const openApiSpec = {
   },
   components: {
     securitySchemes: {
-      bearerAuth: { type: "http", scheme: "bearer", description: "Management token configured with PROVIDER_MANAGEMENT_TOKEN." },
+      bearerAuth: { type: "http", scheme: "bearer", description: "PROVIDER_MANAGEMENT_TOKEN or an authorized configured provider API key." },
     },
   },
 };
