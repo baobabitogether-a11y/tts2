@@ -58,8 +58,12 @@ const licensedLanguageVoices: Record<string, string> = {
 export function speechBody(text: string, lang: string, voice?: string, speed?: number, options?: Record<string, unknown>) {
   const model = typeof options?.['model'] === 'string' ? options['model'] : FISH_MODEL;
   const language = lang.toLowerCase().replaceAll('_', '-').split('-')[0] ?? '';
+  const isFish = model.startsWith('fish-audio/');
+  // Fish clones the reference voice's accent. Using the English default voice for
+  // other languages makes speech sound English, so only fall back to it for English.
+  const chosen = voice || licensedLanguageVoices[language] || (!isFish || language === 'en' ? defaultVoice : undefined);
   return { ...options, input: text, model, response_format: 'mp3', speed: speed ?? 1,
-    voice: voice || licensedLanguageVoices[language] || defaultVoice,
-    ...(model.startsWith('fish-audio/') ? { language: lang } : {}),
+    ...(chosen ? { voice: chosen } : {}),
+    ...(isFish ? { language: lang } : {}),
   };
 }
