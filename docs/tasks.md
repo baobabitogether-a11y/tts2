@@ -12,12 +12,12 @@ without silently rewriting prior prompt history. Do not record secrets.
 
 ## Active work
 
-| Request                                                                      | Status      | Evidence / next step                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provide a browsable OpenAPI reference and keep the JSON contract accessible. | Done        | `/docs` is derived from `src/lib/openapi.ts`; `/api/public/openapi.json` and the page were smoke-tested over HTTP. Commit `07a77c0`.                                                                                                                                       |
-| Implement roadmap work in reasonable priority order.                         | In progress | Multilingual Fish Audio and persistent encrypted provider-key features are implemented. The five ordered Drizzle migrations and key-pool RPC behavior passed against the Supabase Postgres image; `32` tests pass. Remaining full-stack and real-audio checks are blocked. |
-| Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. A separate bridge probe reproduced the failure; published host-port Postgres connectivity works. See [codespace.md](./codespace.md).             |
-| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                    |
+| Request                                                                      | Status      | Evidence / next step                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provide a browsable OpenAPI reference and keep the JSON contract accessible. | Done        | `/docs` is derived from `src/lib/openapi.ts`; `/api/public/openapi.json` and the page were smoke-tested over HTTP. Commit `07a77c0`.                                                                                                                                                                 |
+| Implement roadmap work in reasonable priority order.                         | In progress | Multilingual Fish Audio and persistent encrypted provider-key features are implemented. The five ordered Drizzle migrations and key-pool RPC behavior passed against the Supabase Postgres image; `32` tests pass. Remaining full-stack and real-audio checks are blocked.                           |
+| Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. Regular, database-only, experimental, and host-network startup attempts did not work; published host-port Postgres connectivity works. See [codespace.md](./codespace.md). |
+| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                                              |
 
 ## Raw prompt history
 
@@ -132,4 +132,12 @@ AGENTS.md -  manage docs/*.md such as docs/codespace.md - maintain knowledge bas
 go on
 ```
 
-**Status: In progress.** Tested whether Docker host-gateway forwarding could bypass the blocked bridge. The host gateway is reachable, but the Supabase migrator's `db` entry is in a Docker-managed read-only hosts file, so the CLI cannot use that route. Added the confirmed limitation to [codespace.md](./codespace.md); database migrations/RPCs remain verified against the disposable Supabase Postgres image. Full local Supabase and real provider audio remain blocked.
+**Status: In progress.** Tested whether Docker host-gateway forwarding could bypass the blocked bridge. The host gateway is reachable, but the Supabase migrator's `db` entry is in a Docker-managed read-only hosts file, so the CLI cannot use that route. The experimental CLI startup path fails at the same migrator step. Added the confirmed limitation to [codespace.md](./codespace.md); database migrations/RPCs remain verified against the disposable Supabase Postgres image. Full local Supabase and real provider audio remain blocked.
+
+### 12. Continue
+
+```text
+go on.
+```
+
+**Status: In progress.** Retried the experimental Supabase CLI startup mode; it fails with the same Realtime migrator DB connection timeout. GitHub authentication is still unavailable. No new application changes are justified until local networking or external credentials are available; the tests and isolated database checks already pass.

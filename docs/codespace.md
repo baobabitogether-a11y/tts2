@@ -13,6 +13,9 @@ container, which resolves the Postgres service name but times out opening
 Postgres TCP port `5432`. The Postgres container reports healthy and listens on
 `0.0.0.0:5432`, but that does not prove that the migration container can reach
 it.
+The CLI's `--experimental` startup mode and `supabase db start` hit the same
+temporary-migrator failure; excluding the long-lived Realtime service does not
+skip the schema migration.
 
 The same limitation was reproduced with a separate Postgres container and a
 probe container on both the default bridge subnet and a separate
