@@ -150,7 +150,7 @@ export const openApiSpec = {
         summary: "List personal API tokens",
         security: [{ supabaseSessionAuth: [] }],
         responses: {
-          "200": { description: "Token metadata only; token secrets are never returned by this operation.", content: { "application/json": { schema: { type: "object", properties: { tokens: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, label: { type: "string" }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" }, revoked_at: { type: ["string", "null"], format: "date-time" } } } } } } } } },
+          "200": { description: "Token metadata only; token secrets are never returned by this operation.", content: { "application/json": { schema: { type: "object", properties: { tokens: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, label: { type: "string" }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" }, revoked_at: { type: ["string", "null"], format: "date-time" } } } } } } } },
           "401": { description: "Valid Supabase session required" },
         },
       },
@@ -179,7 +179,7 @@ export const openApiSpec = {
         summary: "List personal provider keys",
         security: [{ supabaseSessionAuth: [] }],
         responses: {
-          "200": { description: "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.", content: { "application/json": { schema: { type: "object", properties: { services: { type: "array", items: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] } }, keys: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, service: { type: "string" }, status: { type: "string" }, failures: { type: "integer" }, code: { type: ["integer", "null"] }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" } } } } } } } } },
+          "200": { description: "Owner-scoped key metadata. Provider secrets and ciphertext are never returned.", content: { "application/json": { schema: { type: "object", properties: { services: { type: "array", items: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] } }, keys: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, service: { type: "string" }, status: { type: "string" }, failures: { type: "integer" }, code: { type: ["integer", "null"] }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" } } } } } } } },
           "401": { description: "Valid Supabase session required" },
         },
       },
@@ -187,7 +187,7 @@ export const openApiSpec = {
         operationId: "savePersonalProviderKey",
         summary: "Save a personal provider key",
         security: [{ supabaseSessionAuth: [] }],
-        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, key: { type: "string", maxLength: 500 } } } } } },
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, key: { type: "string", maxLength: 500 } } } } },
         responses: { "201": { description: "Provider key saved and encrypted" }, "409": { description: "Key already saved for this account" }, "401": { description: "Valid Supabase session required" } },
       },
       delete: {
