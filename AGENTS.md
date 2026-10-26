@@ -14,6 +14,9 @@
 - Verify key-management calls server-side with a management bearer token or configured environment provider key; public synthesis remains available by design.
 
 ## Development notes
+- Maintain project development guidance and task records in `docs/*.md`. Add reusable, actionable lessons when a workflow hits a reproducible mistake or environment limitation; document the symptom, confirmed cause, recovery or workaround, and what future work should avoid. Do not record credentials, provider keys, session-only secrets, or guesses as facts.
+- Keep `docs/tasks.md` as the task ledger: preserve user prompts verbatim, track each request's status, and update the status and evidence when work is completed, blocked, or resumed. Add new prompts rather than silently rewriting history.
+- Keep `docs/codespace.md` current with verified Codespaces, Docker, and local-Supabase setup behavior. Distinguish environment-specific blockers from application defects and record tested workarounds.
 - Keep provider-specific HTTP adapters in `src/lib/tts.server.ts`; do not expose provider credentials to browser code or log them.
 - The canonical OpenAPI document is `src/lib/openapi.ts`, served at `/api/public/openapi.json`. Update its provider, request, response, and usage schemas when API behavior changes.
 - Keep the browsable API reference at `/docs` generated from that canonical OpenAPI object; link it from the speech playground and keep `/api/public/openapi.json` available for tools.
