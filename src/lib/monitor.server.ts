@@ -10,16 +10,39 @@ export type HistoryEntry = {
   bytes: number;
   cached: boolean;
   error?: string;
+  inputChars?: number;
+  outputChars?: number;
+  estimatedInputTokens?: number;
+  providerInputTokens?: number;
+  providerOutputTokens?: number;
 };
 
 const HISTORY_MAX = 500;
 export const history: HistoryEntry[] = [];
-export function record(e: HistoryEntry) {
+export async function record(e: HistoryEntry) {
   history.unshift(e);
   if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
+  try {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    await supabaseAdmin.from('provider_usage_events').insert({
+      method: e.method,
+      service: e.provider.slice(0, 40),
+      status: e.status,
+      duration_ms: Math.max(0, Math.round(e.ms)),
+      audio_bytes: Math.max(0, e.bytes),
+      input_chars: Math.max(0, e.inputChars ?? 0),
+      output_chars: Math.max(0, e.outputChars ?? 0),
+      estimated_input_tokens: Math.max(0, e.estimatedInputTokens ?? 0),
+      provider_input_tokens: e.providerInputTokens ?? null,
+      provider_output_tokens: e.providerOutputTokens ?? null,
+      cached: e.cached,
+    });
+  } catch {
+    // Usage collection is best-effort and must not block public synthesis.
+  }
 }
 
-type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string };
+type CacheVal = { audio: Uint8Array; mime: string; text: string; lang: string; usage?: { inputTokens?: number; outputTokens?: number } };
 const CACHE_MAX_BYTES = 50 * 1024 * 1024;
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const cache = new Map<string, { v: CacheVal; at: number }>();

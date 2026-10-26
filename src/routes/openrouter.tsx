@@ -16,17 +16,18 @@ export const Route = createFileRoute("/openrouter")({
   component: Keys,
 });
 
-type K = { id: string; key: string; source: string; status: string; failures?: number; lastError?: string; quarantinedUntil?: number; lastUsed?: number };
+type K = { id: string; service: string; key: string; source: string; status: string; failures?: number; lastError?: string; quarantinedUntil?: number; lastUsed?: number };
 const API = "/api/public/openrouter-keys";
 
 function Keys() {
   const [keys, setKeys] = useState<K[]>([]);
   const [meta, setMeta] = useState({ after: 10, mins: 15 });
+  const [service, setService] = useState<"openrouter" | "lovable">("openrouter");
   const [input, setInput] = useState("");
   const [err, setErr] = useState("");
   const [token, setToken] = useState('');
 
-  async function call(init?: RequestInit, url = API) {
+  async function call(init?: RequestInit, url = `${API}?service=${service}`) {
     setErr("");
     const r = await fetch(url, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
     const j = await r.json();
@@ -34,19 +35,29 @@ function Keys() {
     setKeys(j.keys);
     setMeta({ after: j.quarantine_after, mins: j.quarantine_minutes });
   }
-  const post = (body: object) => call({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const post = (body: object) => call({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, service }) });
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 text-foreground">
-      <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
-      <h1 className="mt-4 text-2xl font-semibold">OpenRouter keys</h1>
+      <nav className="flex gap-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-foreground">← Back</Link>
+        <Link to="/reports" className="hover:text-foreground">Usage reports</Link>
+      </nav>
+      <h1 className="mt-4 text-2xl font-semibold">Provider keys</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Saved in Cloud · Quarantine: {meta.after} failures / {meta.mins} min
       </p>
       <form className="mt-6 flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); void call(); }}>
-        <input aria-label="Management token" type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="Management token or server OpenRouter key" className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm" />
+        <input aria-label="Management token" type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="Management token or server provider key" className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm" />
         <Button type="submit" variant="outline">Unlock</Button>
       </form>
+      <label className="mt-4 block text-sm">
+        Service
+        <select aria-label="Provider service" value={service} onChange={e => { const next = e.target.value as "openrouter" | "lovable"; setService(next); if (token) void call(undefined, `${API}?service=${next}`); }} className="ml-3 border border-border bg-background px-3 py-2">
+          <option value="openrouter">OpenRouter</option>
+          <option value="lovable">Lovable AI</option>
+        </select>
+      </label>
       <form
         className="mt-6 flex gap-2"
         onSubmit={async (e) => {
@@ -55,7 +66,7 @@ function Keys() {
           setInput("");
         }}
       >
-        <input aria-label="OpenRouter API key" type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder="OpenRouter API key" className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground" />
+        <input aria-label={`${service} API key`} type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder={`${service} API key`} className="min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground" />
         <Button disabled={!token}>Add</Button>
       </form>
       {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
@@ -73,7 +84,7 @@ function Keys() {
               <Button variant="ghost" size="sm" onClick={() => post({ reset: k.id })}>reset</Button>
             )}
             {k.source === "saved" && (
-              <Button variant="ghost" size="sm" onClick={() => call({ method: "DELETE" }, `${API}?id=${k.id}`)}>remove</Button>
+              <Button variant="ghost" size="sm" onClick={() => call({ method: "DELETE" }, `${API}?service=${service}&id=${k.id}`)}>remove</Button>
             )}
           </li>
         ))}

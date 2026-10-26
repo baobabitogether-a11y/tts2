@@ -20,7 +20,9 @@ const optionsSchema = z
         try {
           const v: unknown = JSON.parse(s);
           if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
-        } catch {}
+        } catch {
+          v = undefined;
+        }
         ctx.addIssue({ code: "custom", message: "options must be a JSON object" });
         return z.NEVER;
       }),
@@ -43,7 +45,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
   const t0 = Date.now();
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
+    await record({ at: new Date().toISOString(), method, provider: String(raw["provider"] ?? ""), lang: String(raw["lang"] ?? ""), status: 400, ms: 0, bytes: 0, cached: false, error: "invalid input" });
     return Response.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS });
   }
   const p = parsed.data;
@@ -65,7 +67,19 @@ async function handle(raw: Record<string, unknown>, method: string) {
       });
       cacheSet(key, r);
     }
-    record({ at: new Date().toISOString(), ...base, status: 200, ms: Date.now() - t0, bytes: r.audio.length, cached });
+    await record({
+      at: new Date().toISOString(),
+      ...base,
+      status: 200,
+      ms: Date.now() - t0,
+      bytes: r.audio.length,
+      cached,
+      inputChars: p.text.length,
+      outputChars: r.text.length,
+      estimatedInputTokens: cached ? 0 : Math.ceil(r.text.length / 4),
+      providerInputTokens: cached ? undefined : r.usage?.inputTokens,
+      providerOutputTokens: cached ? undefined : r.usage?.outputTokens,
+    });
     const extra = { "X-Cache": cached ? "HIT" : "MISS" };
     if (p.format === "json")
       return Response.json({ audio: bytesToB64(r.audio), mime: r.mime, text: r.text, lang: r.lang }, { headers: { ...CORS, ...extra } });
@@ -82,7 +96,7 @@ async function handle(raw: Record<string, unknown>, method: string) {
     const status = e instanceof HttpError ? e.status : 500;
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error(e);
-    record({ at: new Date().toISOString(), ...base, status, ms: Date.now() - t0, bytes: 0, cached: false, error: msg.slice(0, 200) });
+    await record({ at: new Date().toISOString(), ...base, status, ms: Date.now() - t0, bytes: 0, cached: false, error: msg.slice(0, 200), inputChars: p.text.length, estimatedInputTokens: Math.ceil(p.text.length / 4) });
     return Response.json({ error: msg }, { status, headers: CORS });
   }
 }
