@@ -12,6 +12,7 @@ dist
 dist-ssr
 .env
 .output
+supabase/.temp/
 .vinxi
 .tanstack/**
 .nitro

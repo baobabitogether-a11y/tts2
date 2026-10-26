@@ -16,6 +16,8 @@
 ## Development notes
 - Keep provider-specific HTTP adapters in `src/lib/tts.server.ts`; do not expose provider credentials to browser code or log them.
 - The canonical OpenAPI document is `src/lib/openapi.ts`, served at `/api/public/openapi.json`. Update its provider, request, response, and usage schemas when API behavior changes.
+- Keep the browsable API reference at `/docs` generated from that canonical OpenAPI object; link it from the speech playground and keep `/api/public/openapi.json` available for tools.
 - Add database changes as ordered Drizzle SQL migrations, register each migration in `drizzle/migrations/meta/_journal.json`, and update `src/integrations/supabase/types.ts` for changed tables or RPCs.
 - Auto routing uses configured keys and persisted health/quarantine state; it does not imply live provider credit-balance polling. Keep usage statistics grouped by the actual provider that served the request.
-- Run `npm test`, `npm run build`, and `npx drizzle-kit check` before shipping. `npm run dev` starts the local app.
+- Run `npx supabase start` to start the local Supabase Docker stack, then run `npm run dev` for the app. Apply ordered Drizzle SQL migrations to the local database before testing database-backed features.
+- Run `npm test`, `npm run build`, and `npx drizzle-kit check` before shipping.

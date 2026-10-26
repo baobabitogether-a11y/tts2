@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as OpenrouterRouteImport } from './routes/openrouter'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HealthRoute = HealthRouteImport.update({
@@ -86,6 +92,7 @@ const ApiUserTokenRoute = ApiUserTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/docs': typeof DocsRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
   '/openrouter': typeof OpenrouterRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/docs': typeof DocsRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
   '/openrouter': typeof OpenrouterRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/docs': typeof DocsRoute
   '/health': typeof HealthRoute
   '/history': typeof HistoryRoute
   '/openrouter': typeof OpenrouterRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/docs'
     | '/health'
     | '/history'
     | '/openrouter'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/docs'
     | '/health'
     | '/history'
     | '/openrouter'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/account'
+    | '/docs'
     | '/health'
     | '/history'
     | '/openrouter'
@@ -174,6 +186,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  DocsRoute: typeof DocsRoute
   HealthRoute: typeof HealthRoute
   HistoryRoute: typeof HistoryRoute
   OpenrouterRoute: typeof OpenrouterRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/health': {
@@ -278,6 +298,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  DocsRoute: DocsRoute,
   HealthRoute: HealthRoute,
   HistoryRoute: HistoryRoute,
   OpenrouterRoute: OpenrouterRoute,

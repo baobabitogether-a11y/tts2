@@ -149,7 +149,10 @@ function Index() {
     <main className="mx-auto max-w-2xl px-6 py-16 font-mono text-foreground">
       <h1 className="text-2xl font-bold">speak/api</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Text → (translate) → audio. CORS open. Spec: <a className="underline" href="/api/public/openapi.json">/api/public/openapi.json</a>
+        Text → (translate) → audio. CORS open.{" "}
+        <Link to="/docs" className="underline">API reference</Link>
+        {" · "}
+        <a className="underline" href="/api/public/openapi.json">OpenAPI JSON</a>
       </p>
       <nav className="mt-3 flex gap-4 text-sm text-muted-foreground">
         <Link to="/account" className="underline hover:text-foreground">Create account / manage keys</Link>
