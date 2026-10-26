@@ -9,10 +9,13 @@ async function handle(request: Request) {
     const url = new URL(request.url);
     const requestedService = request.method === 'DELETE' ? url.searchParams.get('service') : undefined;
     let service: KeyService = (requestedService || url.searchParams.get('service') || 'openrouter') as KeyService;
+    if (!pool.KEY_SERVICES.includes(service)) return Response.json({ error: 'Unsupported service' }, { status: 400, headers: CORS });
     if (request.method === 'POST') {
       const body = await request.json() as { key?: unknown; reset?: unknown; service?: unknown };
-      if (body.service !== undefined) service = body.service as pool.KeyService;
-      if (service !== 'openrouter' && service !== 'lovable') return Response.json({ error: 'Unsupported service' }, { status: 400, headers: CORS });
+      if (body.service !== undefined) {
+        if (typeof body.service !== 'string' || !pool.KEY_SERVICES.includes(body.service as KeyService)) return Response.json({ error: 'Unsupported service' }, { status: 400, headers: CORS });
+        service = body.service as KeyService;
+      }
       if (typeof body.reset === 'string') {
         if (!await pool.resetKey(body.reset, service)) return Response.json({ error: 'Key not found' }, { status: 404, headers: CORS });
       } else {
@@ -20,7 +23,7 @@ async function handle(request: Request) {
         if (!await pool.addKey(service, body.key)) return Response.json({ error: 'Key already exists' }, { status: 409, headers: CORS });
       }
     }
-    if (service !== 'openrouter' && service !== 'lovable') return Response.json({ error: 'Unsupported service' }, { status: 400, headers: CORS });
+    if (!pool.KEY_SERVICES.includes(service)) return Response.json({ error: 'Unsupported service' }, { status: 400, headers: CORS });
     if (request.method === 'DELETE' && !await pool.removeKey(url.searchParams.get('id') || '', service)) return Response.json({ error: 'Key not found or managed in server secrets' }, { status: 400, headers: CORS });
     return Response.json({ service, keys: await pool.listKeys(service), quarantine_after: pool.QUARANTINE_AFTER, quarantine_minutes: pool.QUARANTINE_MS / 60000 }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
   } catch {
