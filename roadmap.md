@@ -1,6 +1,7 @@
 - [x] Add multilingual Fish Audio request handling and client language choices.
-- [ ] Persist OpenRouter keys, failure status, quarantine and rotation in Cloud.
-- [ ] Secure key management and verify persistence and synthesis.
-- [ ] Use the saved OPENROUTER_API_KEY as a server-pool key and test real multilingual audio.
+- [x] Persist provider keys, failure status, quarantine and rotation in service-role-only Cloud tables.
+- [x] Secure key management with encrypted storage, non-sensitive row IDs and server-verified authorization.
+- [x] Load `OPENROUTER_API_KEY` into the encrypted server key pool.
+- [ ] Verify end-to-end key persistence and real multilingual audio with full local Supabase. The migrations and key-pool RPCs pass against the Supabase Postgres image, but this workspace's Docker bridge blocks inter-container TCP; real synthesis also needs a provider key.
 - [x] Fix Fish Audio speaking target languages with English phonetics.
 - [ ] Extend services with more providers/options (scope to confirm with user).
