@@ -56,6 +56,7 @@ export const Route = createFileRoute("/account")({
 function Account() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [authUnavailable, setAuthUnavailable] = useState("");
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -72,16 +73,29 @@ function Account() {
 
   useEffect(() => {
     let mounted = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session);
-        setLoadingSession(false);
-      }
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+    let unsubscribe: (() => void) | undefined;
+    const failInitialization = (reason: unknown) => {
+      if (!mounted) return;
+      setAuthUnavailable(reason instanceof Error ? reason.message : String(reason));
+      setLoadingSession(false);
+    };
+
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+      unsubscribe = () => data.subscription.unsubscribe();
+      void supabase.auth.getSession().then(({ data }) => {
+        if (mounted) {
+          setSession(data.session);
+          setLoadingSession(false);
+        }
+      }).catch(failInitialization);
+    } catch (reason) {
+      failInitialization(reason);
+    }
+
     return () => {
       mounted = false;
-      data.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
@@ -224,7 +238,11 @@ function Account() {
         <Link to="/reports" className="hover:text-foreground">Usage</Link>
       </nav>
       <h1 className="mt-5 text-2xl font-semibold">Your Speak API account</h1>
-      {loadingSession ? <p className="mt-5 text-sm text-muted-foreground">Loading account…</p> : !session ? (
+      {loadingSession ? <p className="mt-5 text-sm text-muted-foreground">Loading account…</p> : authUnavailable ? (
+        <p role="alert" className="mt-5 text-sm text-destructive">
+          Account authentication couldn’t be initialized: {authUnavailable}
+        </p>
+      ) : !session ? (
         <section className="mt-6 max-w-md">
           <div className="mb-4 flex gap-4 text-sm">
             <button type="button" className={mode === "signup" ? "font-semibold text-foreground" : "text-muted-foreground"} onClick={() => setMode("signup")}>Create account</button>
