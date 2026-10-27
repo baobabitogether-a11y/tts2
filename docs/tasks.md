@@ -7,6 +7,7 @@ Preserve original prompts and detailed completion evidence in
 
 | Area | Status | Current note |
 |---|---|---|
+| Build recovery | Verified | Removed duplicate Deepgram/OpenAPI declarations and unused incomplete adapters, corrected type errors, restored missing key-history schema. Automatic build passed; 48 tests passed; playground and docs returned HTTP 200 without page exceptions. |
 | Product roadmap | In progress | See [roadmap.md](../roadmap.md) for prioritized remaining work. |
 | Local app, Auth, REST, and database | Verified minimal stack | `./docker/manage.sh local-up` verifies healthchecks and migrations. Full Supabase CLI startup is blocked by Docker bridge TCP; see [codespace.md](./codespace.md) only for local-stack work. |
 | Real provider synthesis | Blocked by provider key | Production has an OpenRouter key configured, but health reports it blocked after HTTP 401; a short TTS request returned HTTP 502 with an upstream HTTP 503. Successful audio remains unverified. |

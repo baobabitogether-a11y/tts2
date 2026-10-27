@@ -466,3 +466,11 @@ failed (HTTP 503)`. Do not claim successful live synthesis until a working
 provider key is available and audio is verified. Full Supabase CLI testing
 remains blocked because Docker bridge container-to-container TCP has not been
 confirmed restored. The local host-network app is healthy.
+
+## 2026-10-27 — Restore publishing build
+
+**User prompt:** “The latest build failed, so publishing is blocked. Fix the build errors so the project builds again.”
+
+Removed a duplicate Deepgram implementation and a duplicate OpenAPI personal-key POST operation that shadowed the saved-key test contract. Removed unused, incomplete Azure/Google Cloud adapters rather than exposing unimplemented providers. Corrected navigation union access, optional account test-result reads, usage-report null handling, and index-signature access in token tests. Refreshed generated Cloud types and restored the missing service-role-only key-event table with an ordered migration. Provider tests now clear inherited provider environment variables so sandbox credentials cannot affect mock Auto routing.
+
+**Verification:** Automatic build reported `build OK`; all 48 Vitest tests passed. Browser checks returned HTTP 200 for `/`, `/docs`, and `/api/public/openapi.json`, with no uncaught page exceptions. Provider expansion, live multilingual pronunciation, and publishing were not part of this build-recovery request.
