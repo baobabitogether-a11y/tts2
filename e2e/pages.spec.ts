@@ -434,6 +434,50 @@ test("docs API tester sends a personal token only as a bearer header", async ({ 
   await expect(page.locator("body")).not.toContainText(token);
 });
 
+test("generated audio is saved and playable in browser history", async ({ page }) => {
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "audio/mpeg",
+      headers: {
+        "X-Provider": "openai",
+        "X-Response-Time-Ms": "143",
+        "X-Provider-Input-Tokens": "8",
+        "X-Provider-Output-Tokens": "12",
+        "X-Spoken-Lang": "en",
+        "X-Cache": "MISS",
+      },
+      body: Buffer.from([1, 2, 3]),
+    }),
+  );
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+  await expect(page.locator("audio")).toBeVisible();
+
+  await page.goto("/reports");
+  await expect(page.getByRole("heading", { name: "Generated audio history" })).toBeVisible();
+  const historyPlayer = page.locator("audio").first();
+  await expect(historyPlayer).toBeVisible();
+  await expect(page.getByRole("cell", { name: "openai", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "143 ms" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Not reported" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "8 / 12" })).toBeVisible();
+
+  const blobUrl = await historyPlayer.getAttribute("src");
+  expect(blobUrl).toMatch(/^blob:/);
+  await expect
+    .poll(() => page.evaluate(async (url) => (url ? (await fetch(url)).status : 0), blobUrl))
+    .toBe(200);
+
+  await page.reload();
+  await expect(page.locator("audio").first()).toBeVisible();
+});
+
 test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({
   request,
 }) => {

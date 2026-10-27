@@ -25,6 +25,9 @@ describe("public OpenAPI specification", () => {
     ).toMatchObject({
       schema: { enum: expect.arrayContaining(["deepgram"]) },
     });
+    expect(
+      openApiSpec.paths["/api/public/tts"].post.responses["200"].headers["X-Response-Time-Ms"],
+    ).toBeDefined();
     expect(openApiSpec.paths["/api/public/tts"].post.parameters[0]?.name).toBe(
       "X-Provider-API-Key",
     );

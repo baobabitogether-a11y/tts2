@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 import { openApiSpec } from "@/lib/openapi";
 import { speechLanguages } from "@/lib/fish-audio";
 import { detectLanguageCode } from "@/lib/language-detection";
+import { saveAudioHistory } from "@/lib/audio-history";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -56,6 +57,7 @@ function Index() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [audio, setAudio] = useState<string | null>(null);
   const [info, setInfo] = useState("");
+  const [historyWarning, setHistoryWarning] = useState("");
   const [lastRequest, setLastRequest] = useState<Record<string, unknown> | null>(null);
   const [lastResponse, setLastResponse] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,6 +68,11 @@ function Index() {
     const lang = detectLanguageCode(text);
     setForm((current) => ({ ...current, text, ...(lang ? { lang } : {}) }));
   };
+
+  useEffect(() => {
+    if (!audio) return;
+    return () => URL.revokeObjectURL(audio);
+  }, [audio]);
 
   useEffect(() => {
     fetch(
@@ -92,8 +99,10 @@ function Index() {
   }, []);
 
   async function run(quickRequest?: { text: string; lang: string }) {
+    const requestStartedAt = performance.now();
     setBusy(true);
     setInfo("");
+    setHistoryWarning("");
     setAudio(null);
     setLastRequest(null);
     setLastResponse(null);
@@ -181,6 +190,40 @@ function Index() {
       }
       const blob = await res.blob();
       setAudio(URL.createObjectURL(blob));
+      const responseTimeHeader = res.headers.get("X-Response-Time-Ms");
+      const responseTimeMs =
+        responseTimeHeader === null
+          ? Math.round(performance.now() - requestStartedAt)
+          : Number(responseTimeHeader);
+      const spokenLanguage = res.headers.get("X-Spoken-Lang") || form.lang;
+      try {
+        await saveAudioHistory({
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          provider: res.headers.get("X-Provider") || form.provider,
+          language: spokenLanguage,
+          responseTimeMs: Number.isFinite(responseTimeMs)
+            ? responseTimeMs
+            : Math.round(performance.now() - requestStartedAt),
+          audioBytes: blob.size,
+          inputChars: String(body["text"] ?? "").length,
+          cached: res.headers.get("X-Cache") === "HIT",
+          ...(res.headers.has("X-Provider-Input-Tokens")
+            ? { providerInputTokens: Number(res.headers.get("X-Provider-Input-Tokens")) }
+            : {}),
+          ...(res.headers.has("X-Provider-Output-Tokens")
+            ? { providerOutputTokens: Number(res.headers.get("X-Provider-Output-Tokens")) }
+            : {}),
+          mime: blob.type || res.headers.get("Content-Type") || "audio/mpeg",
+          audio: blob,
+        });
+      } catch (historyError) {
+        setHistoryWarning(
+          `Audio generated, but browser history could not be saved: ${
+            historyError instanceof Error ? historyError.message : String(historyError)
+          }`,
+        );
+      }
       let spokenText = res.headers.get("X-Spoken-Text") || "";
       try {
         spokenText = decodeURIComponent(spokenText);
@@ -191,7 +234,7 @@ function Index() {
         status: res.status,
         statusText: res.statusText,
         contentType: blob.type || res.headers.get("Content-Type"),
-        spokenLanguage: res.headers.get("X-Spoken-Lang"),
+        spokenLanguage,
         cache: res.headers.get("X-Cache"),
         audioBytes: blob.size,
         spokenText,
@@ -420,6 +463,11 @@ function Index() {
               <Link to="/account" className="mt-1 inline-block underline">
                 Add a provider key in your account
               </Link>
+            )}
+            {historyWarning && (
+              <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+                {historyWarning}
+              </p>
             )}
           </div>
         )}

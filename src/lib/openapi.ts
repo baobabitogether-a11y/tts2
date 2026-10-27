@@ -121,12 +121,24 @@ const audioSuccessResponse = {
   description:
     "Encoded audio, or a JSON object when format=json. Auto selects a keyed provider without recent auth/quota failures; Google is not included because it does not use API keys.",
   headers: {
+    "X-Response-Time-Ms": {
+      schema: { type: "integer" },
+      description: "Server-side request duration in milliseconds.",
+    },
     "X-Provider": {
       schema: {
         type: "string",
         enum: audioProviders,
       },
       description: "Provider that generated the audio, including the provider selected by Auto.",
+    },
+    "X-Provider-Input-Tokens": {
+      schema: { type: "integer" },
+      description: "Provider-reported input token count, when available.",
+    },
+    "X-Provider-Output-Tokens": {
+      schema: { type: "integer" },
+      description: "Provider-reported output token count, when available.",
     },
   },
   content: {
