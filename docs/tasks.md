@@ -16,9 +16,9 @@ without silently rewriting prior prompt history. Do not record secrets.
 | ---------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Provide a browsable OpenAPI reference and keep the JSON contract accessible. | Done        | `/docs` is derived from `src/lib/openapi.ts`; `/api/public/openapi.json` and the page were smoke-tested over HTTP. Commit `07a77c0`.                                                                                                                                                                                                                                    |
 | Implement roadmap work in reasonable priority order.                         | In progress | Added Deepgram Aura as a provider with language-based models, speed/output options, Auto routing, environment/shared/personal key support, account management, OpenAPI documentation, and migration `0005`. `37` tests, build, and Drizzle migration checks pass. Real audio still needs a Deepgram key; full Supabase remains blocked by Codespaces Docker networking. |
-| Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. Regular, database-only, experimental, and host-network startup attempts did not work; published host-port Postgres connectivity works. See [codespace.md](./codespace.md).                                                                    |
-| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                                                                                                                 |
-| Verify all HTML pages and browser runtime errors with Docker-backed E2E.     | Done        | `./docker/manage.sh e2e` passed all 10 checks in the Playwright container: each HTML route plus 404, navigation, browser console/page errors and same-origin failed responses, status/history/OpenAPI endpoints, CORS preflight, and unauthenticated/Supabase-unavailable API responses. No provider credentials or Supabase stack required.                            |
+| Run the project using local Docker Supabase.                                 | Partial     | The full Supabase CLI is blocked by bridge networking. `./docker/manage.sh local-up` runs the app with Postgres, PostgREST, and GoTrue on host networking; migrations, API endpoints, GoTrue signup, and encrypted key persistence are verified. See [codespace.md](./codespace.md) for missing full-stack services and setup.                                          |
+| Publish the completed commits to GitHub/Lovable.                             | Blocked     | `gh auth status` reports no authenticated GitHub host; previous `git push` failed because Git could not obtain credentials. Authenticate and run `git push` to resume.                                                                                                                                                                                                  |
+| Verify all HTML pages and browser runtime errors with Docker-backed E2E.     | Done        | All 10 Playwright checks pass both in the standalone E2E container and against the configured local Compose app: all HTML routes plus 404, navigation, browser errors, API responses, and expected auth behavior.                                                                                                                                                       |
 
 ## Raw prompt history
 
@@ -191,3 +191,43 @@ https://github.com/mostuf25564/subtitle-sync/tree/main/docker
 ```
 
 **Status: Done.** Added a pinned Playwright Docker runner, browser tests for all five HTML routes and the 404 page, navigation checks, and assertions against console errors, uncaught page exceptions, and failing same-origin requests. Added API smoke tests for health/history/OpenAPI, TTS CORS preflight, and expected unauthorized or Supabase-unavailable responses. `./docker/manage.sh e2e` passed all 10 tests. Tests mock optional OpenRouter model discovery and need no provider credentials or Supabase. Fixed Docker build-context/artifact paths, rebuilt the image on each run, and made Vite's optimizer cache writable for the non-root test user; see [codespace.md](./codespace.md).
+
+### 18. Continue
+
+```text
+go on.
+```
+
+**Status: Blocked on external environment.** Confirmed the Docker daemon is available but has no running Supabase services. The remaining roadmap item is full local Supabase persistence/integration plus real multilingual provider audio; earlier attempts established that this Codespace cannot connect Docker bridge containers, and real synthesis needs a provider credential. The isolated Supabase Postgres migration/RPC checks, unit tests, and Docker browser E2E already pass. Avoid repeating the same CLI startup attempt unless Docker networking changes; see [codespace.md](./codespace.md).
+
+### 19. Solve local Supabase startup
+
+```text
+solve it
+```
+
+**Status: Solved for the app's local DB/Auth/REST needs using a minimal stack.** The Supabase CLI remains blocked by Docker bridge networking, confirmed by a same-bridge Postgres probe and host firewall inspection permission failure. Implemented and started a project-specific host-network Compose stack with Postgres, PostgREST, GoTrue, API gateway, and the web app. Ordered migrations apply on startup and are idempotent on repeat; REST/Auth/OpenAPI/docs/health endpoints return success; actual GoTrue signup/admin cleanup and synthetic encrypted provider-key persistence passed. All 10 Playwright tests, 37 unit tests, production build, and Drizzle check pass. The minimal stack omits Studio, Storage, Realtime, and Edge Functions; see [codespace.md](./codespace.md).
+
+### 20. Free disk space and continue
+
+```text
+1. due to disk space issue - get rid of unused / redundunt images and continue only ensuring u have enough space
+```
+
+**Status: Done.** Disk use was 95% with 1.6 GB available. Removed unused Supabase Studio, Storage, Realtime, Edge Runtime, Postgres Meta, Mailpit, Logflare, Vector, Kong, and the network-probe image; retained the images needed for the local Compose services and Playwright. Reclaimed about 6 GB; disk availability is now 6.9 GB (22% free).
+
+### 21. Compose networking for local services and web
+
+```text
+u might use docker compose to set the network between all services including the web
+```
+
+**Status: Done with host networking.** A Compose bridge would still be subject to the proven bridge TCP failure, so configured the minimal local Supabase-compatible services and web app with Docker host networking, all bound to loopback. `./docker/manage.sh local-up` now generates ignored development secrets, starts services, and applies migrations; the running app and browser E2E checks were verified. See [README.md](../README.md) and [codespace.md](./codespace.md).
+
+### 22. Finalize, commit, and push
+
+```text
+finilize then commit and push. ensuring any conclusions and solving issue or any remiaing issue must be stored on docs for farther dev and review
+```
+
+**Status: Commit pending; push blocked by unavailable authentication.** Implementation, runbook, Codespaces diagnosis, minimal-stack limitations, targeted image-cleanup evidence, and verification results are recorded in project docs. All tests pass. `gh auth status` reports no authenticated host; a push attempt will still be made and its actual outcome recorded below.

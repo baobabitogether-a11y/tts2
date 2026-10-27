@@ -101,3 +101,27 @@ Run the pinned Playwright browser environment in Docker:
 Test results and the HTML report are written under `docker/artifacts/`. To run
 the suite directly, install Playwright's Chromium browser with
 `npx playwright install chromium`, then use `npm run test:e2e`.
+
+### Local Supabase in Docker
+
+Start the app with a local Postgres, PostgREST, and Auth stack:
+
+```sh
+./docker/manage.sh local-up
+```
+
+The command generates gitignored local credentials in `.env.local-supabase`,
+starts the Compose services, applies the Drizzle migrations, and serves the app
+at `http://127.0.0.1:8080`. This Codespace blocks TCP between Docker bridge
+containers, so these services use host networking and bind to loopback instead.
+This intentionally minimal stack does not include Supabase Studio, Storage,
+Realtime, or Edge Functions. Use `./docker/manage.sh local-down` to stop it;
+the database volume is retained. To remove the database and all local data,
+run `./docker/manage.sh local-down --volumes`.
+
+For remote browser access such as Codespaces port forwarding, set
+`LOCAL_SUPABASE_PUBLIC_URL` to the forwarded HTTPS URL for port `54321` and
+`LOCAL_APP_URL` to the forwarded app URL for port `8080` before the first
+`local-up`. If `.env.local-supabase` already exists, edit its
+`VITE_SUPABASE_URL` and `LOCAL_APP_URL` values, then recreate the app and Auth
+containers. The server-side app continues to use loopback `SUPABASE_URL`.

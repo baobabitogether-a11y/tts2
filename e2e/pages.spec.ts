@@ -69,7 +69,12 @@ for (const { path, heading, notFound } of pages) {
       await expect(page.getByRole("main")).toBeVisible();
     }
     if (path === "/account") {
-      await expect(page.getByRole("alert")).toContainText("Account features require Supabase");
+      if (process.env["PLAYWRIGHT_SUPABASE_CONFIGURED"] === "true") {
+        await expect(page.getByLabel("Email")).toBeVisible();
+        await expect(page.getByLabel("Password")).toBeVisible();
+      } else {
+        await expect(page.getByRole("alert")).toContainText("Account features require Supabase");
+      }
     }
     if (path === "/") {
       await expect(page.getByRole("option", { name: "Deepgram Aura" })).toBeAttached();
@@ -123,16 +128,17 @@ test("server-backed status, history, and OpenAPI endpoints respond successfully"
   await expect(openapi.json()).resolves.toMatchObject({ openapi: "3.1.0" });
 });
 
-test("unconfigured account APIs return documented service-unavailable responses", async ({
-  request,
-}) => {
-  for (const [path, expected] of [
+test("account APIs respond appropriately for the Supabase configuration", async ({ request }) => {
+  const configured = process.env["PLAYWRIGHT_SUPABASE_CONFIGURED"] === "true";
+  for (const [path, unavailableMessage] of [
     ["/api/user/provider-keys", "Account provider keys require Supabase."],
     ["/api/user/token", "Personal API tokens require Supabase."],
   ] as const) {
     const response = await request.get(path);
-    expect(response.status(), path).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({ error: expected });
+    expect(response.status(), path).toBe(configured ? 401 : 503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: configured ? "Authentication required" : unavailableMessage,
+    });
   }
 });
 

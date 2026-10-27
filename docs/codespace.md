@@ -24,6 +24,15 @@ was reachable from the Codespace host. Treat this as a Docker bridge networking
 limitation in this environment, not evidence that the app's Supabase
 configuration is wrong.
 
+It was reproduced again on 2026-10-27: the temporary Realtime migrator resolved
+`db` to the healthy Postgres container on the same Docker bridge, but its
+database connection timed out. A fresh PostgreSQL probe container on that same
+bridge also returned `no response` from `pg_isready -h db -p 5432`. The Codespace
+cannot inspect or change the Docker host's forwarding firewall (`iptables`
+returns `Permission denied`), so enabling bridge forwarding from inside the
+workspace is not available. Do not edit Supabase or application configuration
+to mask this host-level failure.
+
 ### Diagnose before retrying
 
 1. Capture the startup log and inspect the temporary migrator while it is still
@@ -56,6 +65,48 @@ Do not silently edit Supabase configuration or claim a full local stack is
 running to work around this host-level limitation. Resume full-stack testing
 when Docker bridge connectivity works or use an explicitly configured local
 Supabase environment.
+
+### Compose local app and Supabase-compatible services
+
+On 2026-10-27, a minimal replacement was verified using Docker host networking:
+host-network containers can communicate with one another and the Codespace
+loopback, while the Supabase CLI cannot use host networking because it requires
+network-scoped aliases. Start this project-specific stack with:
+
+```sh
+./docker/manage.sh local-up
+```
+
+It runs the Supabase PostgreSQL image, PostgREST, GoTrue Auth, an Nginx API
+gateway, and the app. It binds to loopback ports `5432` (Postgres), `54321`
+(Supabase REST/Auth), and `8080` (Vite app), applies the Drizzle migrations, and
+was verified with HTTP health checks, actual GoTrue signup and admin cleanup,
+and a create/list/delete round-trip for a synthetic encrypted provider key.
+All 10 Playwright browser E2E tests passed against the configured stack;
+37 unit tests, production build, and Drizzle migration checks passed. The stack
+is deliberately minimal: it does not
+include Supabase Studio, Storage, Realtime, or Edge Functions and is not the
+full `supabase start` stack.
+
+The command generates `.env.local-supabase` with mode `0600`; it is gitignored
+and contains local-only passwords, signing keys, and management credentials.
+Keep this file while retaining the named Postgres volume, as the database
+password must match the one used when the volume was initialized. Stop services
+with `./docker/manage.sh local-down`; this retains database data.
+`./docker/manage.sh local-down --volumes` removes the database volume.
+`./docker/manage.sh local-logs` follows service logs.
+
+The default browser URL is `http://127.0.0.1:8080` and the API URL is
+`http://127.0.0.1:54321`. For Codespaces forwarded ports, set
+`LOCAL_APP_URL` and `LOCAL_SUPABASE_PUBLIC_URL` before the first `local-up`;
+otherwise update `LOCAL_APP_URL` and `VITE_SUPABASE_URL` in the generated env
+file and recreate the Auth and web containers.
+
+The failed full Supabase CLI retries accumulated large images. A targeted
+cleanup of unused Supabase components (Studio, Storage, Realtime, Edge Runtime,
+Logflare, and related services) freed about 6 GB while retaining Postgres,
+PostgREST, GoTrue, Nginx, and the Playwright image. Avoid `docker system prune`
+or broad image pruning while development images are still needed.
 
 ## Disposable migration checks
 
