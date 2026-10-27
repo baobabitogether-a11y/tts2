@@ -109,17 +109,11 @@ const params = {
     },
     description: "Provider-specific settings. For GET requests, pass as a URL-encoded JSON string.",
   },
-  format: {
-    type: "string",
-    enum: ["binary", "json"],
-    default: "binary",
-    description: "binary = raw audio file, json = base64 audio",
-  },
+  format: { type: "string", enum: ["binary", "json"], default: "binary", description: "binary = raw audio file, json = base64 audio" },
 } as const;
 
 const audioSuccessResponse = {
-  description:
-    "Encoded audio, or a JSON object when format=json. Auto selects a keyed provider without recent auth/quota failures; Google is not included because it does not use API keys.",
+  description: "Encoded audio, or a JSON object when format=json. Auto selects a keyed provider without recent auth/quota failures; Google is not included because it does not use API keys.",
   headers: {
     "X-Response-Time-Ms": {
       schema: { type: "integer" },
@@ -175,14 +169,8 @@ const usageMetricsSchema = {
     input_chars: { type: "integer" },
     output_chars: { type: "integer" },
     estimated_input_tokens: { type: "integer" },
-    provider_input_tokens: {
-      type: "integer",
-      description: "Provider-reported total; zero when unavailable.",
-    },
-    provider_output_tokens: {
-      type: "integer",
-      description: "Provider-reported total; zero when unavailable.",
-    },
+    provider_input_tokens: { type: "integer", description: "Provider-reported total; zero when unavailable." },
+    provider_output_tokens: { type: "integer", description: "Provider-reported total; zero when unavailable." },
     avg_duration_ms: { type: "integer" },
   },
 };
@@ -204,11 +192,7 @@ const usageReportSchema = {
 
 export const openApiSpec = {
   openapi: "3.1.0",
-  info: {
-    title: "Speak API",
-    version: "1.0.0",
-    description: "Text-to-speech with optional translation. CORS enabled.",
-  },
+  info: { title: "Speak API", version: "1.0.0", description: "Text-to-speech with optional translation. CORS enabled." },
   servers: [{ url: "https://tts2.lovable.app", description: "Speak API production server" }],
   paths: {
     "/api/public/tts": {
@@ -270,11 +254,7 @@ export const openApiSpec = {
         ],
         requestBody: {
           required: true,
-          content: {
-            "application/json": {
-              schema: { type: "object", required: ["text", "lang"], properties: params },
-            },
-          },
+          content: { "application/json": { schema: { type: "object", required: ["text", "lang"], properties: params } } },
         },
         responses: {
           "200": audioSuccessResponse,
@@ -480,11 +460,7 @@ export const openApiSpec = {
           },
         ],
         responses: {
-          "200": {
-            description:
-              "Request, audio, character, estimated-token, reported-token, and latency totals grouped by actual provider.",
-            content: { "application/json": { schema: usageReportSchema } },
-          },
+          "200": { description: "Request, audio, character, estimated-token, reported-token, and latency totals grouped by actual provider.", content: { "application/json": { schema: usageReportSchema } } },
           "401": { description: "Management authorization required" },
           "503": { description: "Usage report unavailable" },
         },
@@ -496,39 +472,14 @@ export const openApiSpec = {
         summary: "List personal API tokens",
         security: [{ supabaseSessionAuth: [] }],
         responses: {
-          "200": {
-            description: "Token metadata only; token secrets are never returned by this operation.",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    tokens: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          id: { type: "string", format: "uuid" },
-                          label: { type: "string" },
-                          created_at: { type: "string", format: "date-time" },
-                          last_used: { type: ["string", "null"], format: "date-time" },
-                          revoked_at: { type: ["string", "null"], format: "date-time" },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          "200": { description: "Token metadata only; token secrets are never returned by this operation.", content: { "application/json": { schema: { type: "object", properties: { tokens: { type: "array", items: { type: "object", properties: { id: { type: "string", format: "uuid" }, label: { type: "string" }, created_at: { type: "string", format: "date-time" }, last_used: { type: ["string", "null"], format: "date-time" }, revoked_at: { type: ["string", "null"], format: "date-time" } } } } } } } } },
           "401": { description: "Valid Supabase session required" },
         },
       },
       post: {
         operationId: "createPersonalApiToken",
         summary: "Create a personal API token",
-        description:
-          "Requires a Supabase session. The personal token secret is returned once and cannot be retrieved later; only its hash is stored.",
+        description: "Requires a Supabase session. The personal token secret is returned once and cannot be retrieved later; only its hash is stored.",
         security: [{ supabaseSessionAuth: [] }],
         requestBody: {
           required: false,
@@ -696,18 +647,19 @@ export const openApiSpec = {
           "401": { description: "Valid Supabase session required" },
         },
       },
+      post: {
+        operationId: "savePersonalProviderKey",
+        summary: "Save a personal provider key",
+        security: [{ supabaseSessionAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, key: { type: "string", maxLength: 500 } } } } } },
+        responses: { "201": { description: "Provider key saved and encrypted" }, "409": { description: "Key already saved for this account" }, "401": { description: "Valid Supabase session required" } },
+      },
       delete: {
         operationId: "removePersonalProviderKey",
         summary: "Remove a personal provider key",
         security: [{ supabaseSessionAuth: [] }],
-        parameters: [
-          { name: "id", in: "query", required: true, schema: { type: "string", format: "uuid" } },
-        ],
-        responses: {
-          "200": { description: "Provider key removed" },
-          "404": { description: "Key not found for this user" },
-          "401": { description: "Valid Supabase session required" },
-        },
+        parameters: [{ name: "id", in: "query", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: { "200": { description: "Provider key removed" }, "404": { description: "Key not found for this user" }, "401": { description: "Valid Supabase session required" } },
       },
     },
   },
