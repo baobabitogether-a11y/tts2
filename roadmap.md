@@ -38,6 +38,8 @@ host-network stack, not the complete Supabase CLI stack.
 
 ## Delivered
 
+- [ ] Restore a clean build after the latest provider edits and verify the app loads.
+
 - Multilingual Fish Audio handling and language choices.
 - Durable provider-key storage, AES-GCM encryption, rotation, failure tracking,
   quarantine, and server-verified key management.

@@ -422,16 +422,7 @@ function langTag(lang: string) {
   return `${b}-${(region || defaults[b] || b).toUpperCase()}`;
 }
 
-async function deepgramTts(text: string, voice?: string, apiKey?: string, options?: Record<string, unknown>, userId?: string) {
-  const model = typeof options?.["model"] === "string" ? options["model"] : voice || "aura-2-thalia-en";
-  return withProviderKey("deepgram", apiKey, (key) => fetch(`https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}&encoding=mp3`, {
-    method: "POST",
-    headers: { Authorization: `Token ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  }), async (r) => new Uint8Array(await r.arrayBuffer()), userId);
-}
-
-const xmlEscape = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
+const xmlEscape = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c] ?? c);
 
 // Azure keys are stored as "region:key" (region may also come from options.region or AZURE_SPEECH_REGION).
 async function azureTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
