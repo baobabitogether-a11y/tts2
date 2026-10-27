@@ -461,3 +461,11 @@ bridge tests absent a network/runtime change. Ask for a provider key to be
 configured through the project's secure key-management path, a Lovable
 redeploy, or changed Docker network capability before claiming those checks
 complete.
+
+Follow-up checks: production still serves the old OpenAPI error description.
+The local web container has no OpenAI/OpenRouter/Gemini environment key
+configured. A fresh disposable PostgreSQL pair on the default Docker bridge
+still could not communicate (`pg_isready` returned “no response”); the probe
+container was stopped afterward. The minimal host-network app remains healthy.
+The final documentation-only commit is local because pushing still requires
+GitHub authentication.
