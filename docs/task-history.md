@@ -401,3 +401,31 @@ links to Account to test a saved key. Provider error details are size-limited
 and known credential patterns are redacted. Updated OpenAPI error descriptions.
 Verified with 48 unit tests, 18 Docker E2E tests, production build, targeted
 lint, and `git diff --check`.
+
+### 39. Confirm updated GPT/OpenAI failure response is visible
+
+~~~~text
+gpt - shows
+## Response
+
+```
+{
+  "status": 502,
+  "statusText": "",
+  "contentType": "application/json",
+  "body": {
+    "error": "All openai keys failed (HTTP 503)"
+  }
+}
+```
+~~~~
+
+**Status: Deployment pending.** Confirmed the source fix is at `c8ebd0e` and
+`main` matches `origin/main`; rebuilt local Docker app health is OK, and its
+served OpenAPI contract documents the new diagnostics. Production
+`https://tts2.lovable.app/api/public/openapi.json` still returns the old
+“All eligible provider keys failed” description. This identifies a stale
+Lovable deployment rather than a missing local code fix. The historical
+provider response body is unavailable; the original 503 cannot be diagnosed
+retroactively. Verify production again after the connected `main` branch is
+redeployed.
