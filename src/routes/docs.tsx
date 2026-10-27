@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
 import { openApiSpec } from "@/lib/openapi";
 
 type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
@@ -32,7 +33,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isOperation(value: unknown): value is OpenApiOperation {
   return (
-    isRecord(value) && (typeof value.summary === "string" || typeof value.operationId === "string")
+    isRecord(value) &&
+    (typeof value["summary"] === "string" || typeof value["operationId"] === "string")
   );
 }
 
@@ -54,6 +56,53 @@ export const Route = createFileRoute("/docs")({
 });
 
 function ApiDocs() {
+  const [apiToken, setApiToken] = useState("");
+  const [speechText, setSpeechText] = useState("Hello from the Speak API tester.");
+  const [speechLang, setSpeechLang] = useState("en");
+  const [provider, setProvider] = useState("auto");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+  const [audioUrl, setAudioUrl] = useState("");
+
+  useEffect(
+    () => () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    },
+    [audioUrl],
+  );
+
+  async function trySpeech(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setResult("");
+    setAudioUrl("");
+    try {
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (apiToken.trim()) headers.set("Authorization", `Bearer ${apiToken.trim()}`);
+      const response = await fetch("/api/public/tts", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text: speechText, lang: speechLang, provider }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        setResult(`HTTP ${response.status}: ${body || response.statusText}`);
+        return;
+      }
+      const blob = await response.blob();
+      if (blob.type.startsWith("audio/")) {
+        setAudioUrl(URL.createObjectURL(blob));
+        setResult(`HTTP ${response.status} · ${blob.type} · ${blob.size} bytes`);
+      } else {
+        setResult(`HTTP ${response.status}: ${await blob.text()}`);
+      }
+    } catch (reason) {
+      setResult(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const operations = Object.entries(openApiSpec.paths).flatMap(([path, pathItem]) =>
     methods.flatMap((method) => {
       const operation = Reflect.get(pathItem, method);
@@ -144,16 +193,94 @@ function ApiDocs() {
         ))}
       </section>
 
-      <aside className="mt-8 border border-border p-4 text-sm">
-        <h2 className="font-semibold">Try a request</h2>
-        <p className="mt-1 text-muted-foreground">
-          Use the{" "}
+      <section className="mt-8 border border-border p-4">
+        <h2 className="font-semibold">Try a speech request</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Optionally enter a personal API token. It is held in this page's memory only, sent as a
+          bearer header, and never added to the URL or request summary.
+        </p>
+        <form className="mt-4 space-y-3" onSubmit={(event) => void trySpeech(event)}>
+          <label className="block text-xs text-muted-foreground">
+            Personal API token (optional)
+            <input
+              aria-label="Personal API token"
+              className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm"
+              type="password"
+              autoComplete="off"
+              value={apiToken}
+              onChange={(event) => setApiToken(event.target.value)}
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs text-muted-foreground">
+              Provider
+              <select
+                aria-label="Tester provider"
+                className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm"
+                value={provider}
+                onChange={(event) => setProvider(event.target.value)}
+              >
+                {[
+                  "auto",
+                  "google",
+                  "lovable",
+                  "openrouter",
+                  "gemini",
+                  "openai",
+                  "elevenlabs",
+                  "deepgram",
+                ].map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs text-muted-foreground">
+              Language
+              <input
+                aria-label="Tester language"
+                className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm"
+                value={speechLang}
+                onChange={(event) => setSpeechLang(event.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <label className="block text-xs text-muted-foreground">
+            Text
+            <textarea
+              aria-label="Tester text"
+              className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm"
+              rows={3}
+              maxLength={5000}
+              value={speechText}
+              onChange={(event) => setSpeechText(event.target.value)}
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+            disabled={busy}
+          >
+            {busy ? "Sending…" : "Send request"}
+          </button>
+        </form>
+        {result && (
+          <p role="status" className="mt-3 break-words text-sm">
+            {result}
+          </p>
+        )}
+        {audioUrl && <audio className="mt-3 w-full" controls src={audioUrl} />}
+        <p className="mt-4 text-sm text-muted-foreground">
+          For other operations, use the{" "}
           <Link to="/" className="underline">
             speech playground
           </Link>{" "}
-          for an interactive TTS request, or send a request directly to the documented endpoints.
+          or send requests directly.
         </p>
-      </aside>
+      </section>
     </main>
   );
 }

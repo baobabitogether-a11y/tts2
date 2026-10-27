@@ -86,11 +86,26 @@ const params = {
       },
       instructions: { type: "string", description: "Optional OpenAI speech style instructions." },
       voice_id: { type: "string", description: "Optional ElevenLabs voice ID override." },
-      encoding: { type: "string", description: "Deepgram output encoding (for example mp3, linear16, or opus)." },
-      container: { type: "string", description: "Deepgram output container (for example wav or ogg)." },
-      sample_rate: { type: "integer", description: "Deepgram output sample rate, where supported by the encoding." },
-      bit_rate: { type: "integer", description: "Deepgram output bit rate, where supported by the encoding." },
-      mip_opt_out: { type: "boolean", description: "Deepgram Model Improvement Program opt-out setting." },
+      encoding: {
+        type: "string",
+        description: "Deepgram output encoding (for example mp3, linear16, or opus).",
+      },
+      container: {
+        type: "string",
+        description: "Deepgram output container (for example wav or ogg).",
+      },
+      sample_rate: {
+        type: "integer",
+        description: "Deepgram output sample rate, where supported by the encoding.",
+      },
+      bit_rate: {
+        type: "integer",
+        description: "Deepgram output bit rate, where supported by the encoding.",
+      },
+      mip_opt_out: {
+        type: "boolean",
+        description: "Deepgram Model Improvement Program opt-out setting.",
+      },
     },
     description: "Provider-specific settings. For GET requests, pass as a URL-encoded JSON string.",
   },
@@ -188,7 +203,7 @@ export const openApiSpec = {
       get: {
         operationId: "synthesizeSpeechFromQuery",
         summary: "Synthesize speech (query params)",
-        security: [],
+        security: [{ personalApiTokenAuth: [] }, {}],
         parameters: [
           ...Object.entries(params).map(([name, schema]) => ({
             name,
@@ -227,7 +242,7 @@ export const openApiSpec = {
       post: {
         operationId: "synthesizeSpeech",
         summary: "Synthesize speech (JSON body)",
-        security: [],
+        security: [{ personalApiTokenAuth: [] }, {}],
         parameters: [
           {
             name: "X-Provider-API-Key",
@@ -543,6 +558,11 @@ export const openApiSpec = {
                         properties: {
                           id: { type: "string", format: "uuid" },
                           service: { type: "string" },
+                          key_suffix: {
+                            type: "string",
+                            description:
+                              "Last four characters of the saved key; the secret is never returned.",
+                          },
                           status: { type: "string" },
                           failures: { type: "integer" },
                           code: { type: ["integer", "null"] },
@@ -569,19 +589,48 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["service", "key"],
+                anyOf: [{ required: ["service", "key"] }, { required: ["test", "id"] }],
                 properties: {
                   service: {
                     type: "string",
                     enum: keyedProviders,
                   },
                   key: { type: "string", maxLength: 500 },
+                  test: {
+                    type: "boolean",
+                    const: true,
+                    description:
+                      "Test a saved OpenRouter key and return safe account/token status.",
+                  },
+                  id: { type: "string", format: "uuid" },
                 },
               },
             },
           },
         },
         responses: {
+          "200": {
+            description: "OpenRouter key test result and safe token/account status.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    test: {
+                      type: "object",
+                      properties: {
+                        valid: { type: "boolean" },
+                        status: { type: "string" },
+                        http_status: { type: "integer" },
+                        account: { type: "object" },
+                        message: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           "201": { description: "Provider key saved and encrypted" },
           "409": { description: "Key already saved for this account" },
           "401": { description: "Valid Supabase session required" },
@@ -620,7 +669,7 @@ export const openApiSpec = {
         type: "http",
         scheme: "bearer",
         description:
-          "Personal API token created from the signed-in user's account. Usage reports are scoped to that user.",
+          "Personal API token created from the signed-in user's account. TTS requests using this token use only provider keys saved to that account; usage reports are scoped to that user.",
       },
     },
   },

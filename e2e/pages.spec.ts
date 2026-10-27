@@ -142,6 +142,150 @@ test("account shows full Auth API errors to the user", async ({ page }) => {
   );
 });
 
+test("account shows a masked OpenRouter key and its tested status", async ({ page }) => {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: "test-user-id",
+      aud: "authenticated",
+      role: "authenticated",
+      exp: now + 3600,
+    }),
+  ).toString("base64url");
+  const accessToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.test-signature`;
+  const user = {
+    id: "test-user-id",
+    email: "key-owner@example.test",
+    aud: "authenticated",
+    app_metadata: { provider: "email", providers: ["email"] },
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  };
+  let tested = false;
+  let testAuthorization = "";
+
+  await page.route("**/auth/v1/signup", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access_token: accessToken,
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        refresh_token: "test-refresh-token",
+        user,
+      }),
+    }),
+  );
+  await page.route("**/api/user/provider-keys", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          services: ["openrouter"],
+          keys: [
+            {
+              id: "independent-row-id",
+              service: "openrouter",
+              key_suffix: "9xY2",
+              status: tested ? "valid" : "untested",
+              failures: 0,
+              code: null,
+              created_at: new Date().toISOString(),
+              last_used: null,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    testAuthorization = route.request().headers()["authorization"] ?? "";
+    expect(route.request().postDataJSON()).toEqual({ test: true, id: "independent-row-id" });
+    tested = true;
+    await route.fulfill({
+      json: { test: { status: "valid", account: { limit: 100, usage: 2 } } },
+    });
+  });
+  await page.route("**/api/user/token", (route) => route.fulfill({ json: { tokens: [] } }));
+  await page.route("**/api/public/usage?hours=168", (route) =>
+    route.fulfill({
+      json: {
+        window_hours: 168,
+        totals: {
+          requests: 0,
+          successful: 0,
+          failed: 0,
+          input_chars: 0,
+          output_chars: 0,
+          estimated_input_tokens: 0,
+          provider_input_tokens: 0,
+          provider_output_tokens: 0,
+        },
+      },
+    }),
+  );
+
+  await page.goto("/account");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password").fill("not-a-real-password");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText(user.email)).toBeVisible();
+  await expect(page.getByLabel("openrouter key suffix")).toHaveText("••••9xY2");
+  await page.getByRole("button", { name: "Test key" }).click();
+  await expect(page.getByRole("status")).toContainText("valid — limit: 100 · usage: 2");
+  expect(testAuthorization).toBe(`Bearer ${accessToken}`);
+});
+
+test("Auto selection remains available after no-key synthesis failure", async ({ page }) => {
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "No provider key is available for Auto routing. Add a key in account settings.",
+      }),
+    }),
+  );
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Provider").selectOption("auto");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("No provider key is available");
+  await expect(
+    page.getByRole("link", { name: "Add a provider key in your account" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Provider")).toHaveValue("auto");
+  await expect(page.getByLabel("Provider").getByRole("option", { name: /Auto/ })).toBeAttached();
+});
+
+test("docs API tester sends a personal token only as a bearer header", async ({ page }) => {
+  const token = "spk_test-token-never-render";
+  let authorization = "";
+  let requestUrl = "";
+  await page.route("**/api/public/tts", async (route) => {
+    authorization = route.request().headers()["authorization"] ?? "";
+    requestUrl = route.request().url();
+    await route.fulfill({ status: 200, contentType: "audio/mpeg", body: Buffer.from([1, 2, 3]) });
+  });
+  await page.goto("/docs");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Personal API token").fill(token);
+  await page.getByLabel("Tester text").fill("Test voice");
+  await page.getByRole("button", { name: "Send request" }).click();
+
+  await expect(page.getByRole("status")).toContainText("audio/mpeg");
+  await expect(page.locator("audio")).toBeVisible();
+  expect(authorization).toBe(`Bearer ${token}`);
+  expect(requestUrl).not.toContain(token);
+  await expect(page.locator("body")).not.toContainText(token);
+});
+
 test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({
   request,
 }) => {

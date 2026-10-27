@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
 import { openApiSpec } from "@/lib/openapi";
-import { speechLanguages } from '@/lib/fish-audio';
+import { speechLanguages } from "@/lib/fish-audio";
 import { detectLanguageCode } from "@/lib/language-detection";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,22 +28,39 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const field = "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
+const field =
+  "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
 const quickSamples = {
-  fr: { text: "Bonjour, comment allez-vous aujourd'hui ? La lumière du soir est magnifique.", lang: "fr" },
+  fr: {
+    text: "Bonjour, comment allez-vous aujourd'hui ? La lumière du soir est magnifique.",
+    lang: "fr",
+  },
   it: { text: "Ciao, come stai oggi? La luce della sera è bellissima.", lang: "it" },
 } as const;
 
 function Index() {
-  const [form, setForm] = useState({ text: "The warm light flows across the OpenRouter office as the evening settles in and the routing never stops. One interface, hundreds of models. Ready when you are.", lang: "en", target_lang: "", provider: "google", api_key: "", voice: "", model: "fish-audio/s2.1-pro-free:free", speed: "1", options: "" });
-  const [models, setModels] = useState<Array<{ slug: string; short_name?: string; name?: string }>>([]);
+  const [form, setForm] = useState({
+    text: "The warm light flows across the OpenRouter office as the evening settles in and the routing never stops. One interface, hundreds of models. Ready when you are.",
+    lang: "en",
+    target_lang: "",
+    provider: "google",
+    api_key: "",
+    voice: "",
+    model: "fish-audio/s2.1-pro-free:free",
+    speed: "1",
+    options: "",
+  });
+  const [models, setModels] = useState<Array<{ slug: string; short_name?: string; name?: string }>>(
+    [],
+  );
   const [modelsLoading, setModelsLoading] = useState(true);
   const [audio, setAudio] = useState<string | null>(null);
   const [info, setInfo] = useState("");
   const [lastRequest, setLastRequest] = useState<Record<string, unknown> | null>(null);
   const [lastResponse, setLastResponse] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (k: string) => (e: { target: { value: string } }) => setForm((current) => ({ ...current, [k]: e.target.value }));
+  const set = (k: string) => (e: { target: { value: string } }) =>
+    setForm((current) => ({ ...current, [k]: e.target.value }));
   const setText = (e: { target: { value: string } }) => {
     const text = e.target.value;
     const lang = detectLanguageCode(text);
@@ -50,13 +68,19 @@ function Index() {
   };
 
   useEffect(() => {
-    fetch("https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards&input_modalities=text&output_modalities=audio")
+    fetch(
+      "https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards&input_modalities=text&output_modalities=audio",
+    )
       .then((res) => {
         if (!res.ok) throw new Error(`OpenRouter returned ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        const listed = (data.data?.models ?? []) as Array<{ slug: string; short_name?: string; name?: string }>;
+        const listed = (data.data?.models ?? []) as Array<{
+          slug: string;
+          short_name?: string;
+          name?: string;
+        }>;
         const available = [
           { slug: "fish-audio/s2.1-pro-free:free", short_name: "Fish Audio S2.1 Pro Free" },
           ...listed.filter((model) => model.slug !== "fish-audio/s2.1-pro-free:free"),
@@ -75,7 +99,12 @@ function Index() {
     setLastResponse(null);
     try {
       let options: Record<string, unknown> | undefined;
-      if (!quickRequest && form.provider !== "google" && form.provider !== "auto" && form.options.trim()) {
+      if (
+        !quickRequest &&
+        form.provider !== "google" &&
+        form.provider !== "auto" &&
+        form.options.trim()
+      ) {
         try {
           options = JSON.parse(form.options);
         } catch {
@@ -86,7 +115,9 @@ function Index() {
         ? {
             ...quickRequest,
             provider: form.provider,
-            ...(form.provider !== "auto" && form.provider !== "google" && form.api_key && { api_key: form.api_key }),
+            ...(form.provider !== "auto" &&
+              form.provider !== "google" &&
+              form.api_key && { api_key: form.api_key }),
             ...(form.provider === "openrouter" && form.model && { options: { model: form.model } }),
           }
         : {
@@ -94,11 +125,16 @@ function Index() {
             lang: form.lang,
             provider: form.provider,
             ...(form.target_lang && { target_lang: form.target_lang }),
-            ...(form.provider !== "auto" && form.provider !== "google" && form.api_key && { api_key: form.api_key }),
+            ...(form.provider !== "auto" &&
+              form.provider !== "google" &&
+              form.api_key && { api_key: form.api_key }),
             ...(form.provider !== "auto" && form.voice && { voice: form.voice }),
             ...(Number(form.speed) !== 1 && { speed: Number(form.speed) }),
             ...((options || (form.provider === "openrouter" && form.model)) && {
-              options: { ...options, ...(form.provider === "openrouter" && form.model ? { model: form.model } : {}) },
+              options: {
+                ...options,
+                ...(form.provider === "openrouter" && form.model ? { model: form.model } : {}),
+              },
             }),
           };
       setLastRequest({
@@ -106,9 +142,20 @@ function Index() {
         url: "/api/public/tts",
         body: { ...body, ...(body["api_key"] ? { api_key: "[redacted]" } : {}) },
       });
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (
+        import.meta.env["VITE_SUPABASE_URL"] &&
+        import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]
+      ) {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (data.session?.access_token) {
+          headers.set("Authorization", `Bearer ${data.session.access_token}`);
+        }
+      }
       const res = await fetch("/api/public/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -124,7 +171,12 @@ function Index() {
         } catch {
           if (responseText) message = responseText;
         }
-        setLastResponse({ status: res.status, statusText: res.statusText, contentType: res.headers.get("Content-Type"), body: responseBody });
+        setLastResponse({
+          status: res.status,
+          statusText: res.statusText,
+          contentType: res.headers.get("Content-Type"),
+          body: responseBody,
+        });
         throw new Error(message);
       }
       const blob = await res.blob();
@@ -158,18 +210,29 @@ function Index() {
       <h1 className="text-2xl font-bold">speak/api</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Text → (translate) → audio. CORS open.{" "}
-        <Link to="/docs" className="underline">API reference</Link>
+        <Link to="/docs" className="underline">
+          API reference
+        </Link>
         {" · "}
-        <a className="underline" href="/api/public/openapi.json">OpenAPI JSON</a>
+        <a className="underline" href="/api/public/openapi.json">
+          OpenAPI JSON
+        </a>
       </p>
       <nav className="mt-3 flex gap-4 text-sm text-muted-foreground">
-        <Link to="/account" className="underline hover:text-foreground">Create account / manage keys</Link>
+        <Link to="/account" className="underline hover:text-foreground">
+          Create account / manage keys
+        </Link>
       </nav>
 
       <section className="mt-10 space-y-3">
         <label className="block text-xs text-muted-foreground">
           Provider
-          <select aria-label="Provider" className={`${field} mt-1`} value={form.provider} onChange={set("provider")}>
+          <select
+            aria-label="Provider"
+            className={`${field} mt-1`}
+            value={form.provider}
+            onChange={set("provider")}
+          >
             <option value="auto">Auto (random healthy provider)</option>
             <option value="google">Google</option>
             <option value="lovable">Lovable</option>
@@ -213,13 +276,33 @@ function Index() {
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-xs text-muted-foreground">
             Text language
-            <input aria-label="Text language" list="speech-languages" className={`${field} mt-1`} placeholder="Auto-detected" value={form.lang} onChange={set("lang")} />
+            <input
+              aria-label="Text language"
+              list="speech-languages"
+              className={`${field} mt-1`}
+              placeholder="Auto-detected"
+              value={form.lang}
+              onChange={set("lang")}
+            />
           </label>
           <label className="block text-xs text-muted-foreground">
             Translate to (optional)
-            <input aria-label="Translate to" list="speech-languages" className={`${field} mt-1`} placeholder="No translation" value={form.target_lang} onChange={set("target_lang")} />
+            <input
+              aria-label="Translate to"
+              list="speech-languages"
+              className={`${field} mt-1`}
+              placeholder="No translation"
+              value={form.target_lang}
+              onChange={set("target_lang")}
+            />
           </label>
-          <datalist id="speech-languages">{speechLanguages.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</datalist>
+          <datalist id="speech-languages">
+            {speechLanguages.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </datalist>
         </div>
         <details className="border-t border-border pt-3">
           <summary className="cursor-pointer text-sm">Advanced settings</summary>
@@ -229,7 +312,11 @@ function Index() {
                 {form.provider === "deepgram" ? "Aura model (optional)" : "Voice (optional)"}
                 <input
                   className={`${field} mt-1`}
-                  placeholder={form.provider === "deepgram" ? "Use language default, e.g. aura-2-thalia-en" : "Use provider default"}
+                  placeholder={
+                    form.provider === "deepgram"
+                      ? "Use language default, e.g. aura-2-thalia-en"
+                      : "Use provider default"
+                  }
                   value={form.voice}
                   onChange={set("voice")}
                 />
@@ -250,10 +337,19 @@ function Index() {
                 </label>
                 <label className="block text-xs text-muted-foreground">
                   OpenRouter model
-                  <select className={`${field} mt-1`} value={form.model} onChange={set("model")} disabled={modelsLoading || models.length === 0}>
-                    <option value="">{modelsLoading ? "Loading models…" : "No models available"}</option>
+                  <select
+                    className={`${field} mt-1`}
+                    value={form.model}
+                    onChange={set("model")}
+                    disabled={modelsLoading || models.length === 0}
+                  >
+                    <option value="">
+                      {modelsLoading ? "Loading models…" : "No models available"}
+                    </option>
                     {models.map((model) => (
-                      <option key={model.slug} value={model.slug}>{model.short_name || model.name || model.slug}</option>
+                      <option key={model.slug} value={model.slug}>
+                        {model.short_name || model.name || model.slug}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -276,31 +372,62 @@ function Index() {
               )}
             <label className="block text-xs text-muted-foreground">
               Speed: {form.speed}x
-              <input className="w-full accent-foreground" type="range" min="0.25" max="4" step="0.25" value={form.speed} onChange={set("speed")} />
+              <input
+                className="w-full accent-foreground"
+                type="range"
+                min="0.25"
+                max="4"
+                step="0.25"
+                value={form.speed}
+                onChange={set("speed")}
+              />
             </label>
             {form.provider !== "google" && form.provider !== "auto" && (
               <label className="block text-xs text-muted-foreground">
                 Provider options (JSON)
-                <textarea className={`${field} mt-1`} rows={2} placeholder='Optional, e.g. {"temperature":0.7}' value={form.options} onChange={set("options")} />
+                <textarea
+                  className={`${field} mt-1`}
+                  rows={2}
+                  placeholder='Optional, e.g. {"temperature":0.7}'
+                  value={form.options}
+                  onChange={set("options")}
+                />
               </label>
             )}
           </div>
         </details>
-        <button onClick={() => void run()} disabled={busy} className="bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50">
+        <button
+          onClick={() => void run()}
+          disabled={busy}
+          className="bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+        >
           {busy ? "Generating…" : "Generate audio"}
         </button>
-        {info && <p role="alert" className="break-all text-sm text-destructive">{info}</p>}
+        {info && (
+          <div role="alert" className="break-all text-sm text-destructive">
+            <p>{info}</p>
+            {info.includes("No provider key is available") && (
+              <Link to="/account" className="mt-1 inline-block underline">
+                Add a provider key in your account
+              </Link>
+            )}
+          </div>
+        )}
         {audio && <audio className="w-full" controls src={audio} />}
         {lastRequest && (
           <section className="border-t border-border pt-4">
             <h2 className="text-sm font-bold">Request sent</h2>
-            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">{JSON.stringify(lastRequest, null, 2)}</pre>
+            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">
+              {JSON.stringify(lastRequest, null, 2)}
+            </pre>
           </section>
         )}
         {lastResponse && (
           <section className="border-t border-border pt-4">
             <h2 className="text-sm font-bold">Response</h2>
-            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">{JSON.stringify(lastResponse, null, 2)}</pre>
+            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">
+              {JSON.stringify(lastResponse, null, 2)}
+            </pre>
           </section>
         )}
       </section>
@@ -310,7 +437,9 @@ function Index() {
         <h2 className="text-sm font-bold">curl</h2>
         <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">{`curl "$HOST/api/public/tts?text=Hello&lang=en&target_lang=fr&provider=google" -o out.mp3`}</pre>
         <h2 className="mt-6 text-sm font-bold">OpenAPI</h2>
-        <pre className="mt-2 max-h-96 overflow-auto bg-muted p-3 text-xs">{JSON.stringify(openApiSpec, null, 2)}</pre>
+        <pre className="mt-2 max-h-96 overflow-auto bg-muted p-3 text-xs">
+          {JSON.stringify(openApiSpec, null, 2)}
+        </pre>
       </details>
     </main>
   );

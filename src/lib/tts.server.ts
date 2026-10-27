@@ -1,14 +1,7 @@
 // Server-only TTS + translation providers.
-import { speechBody } from './fish-audio';
+import { speechBody } from "./fish-audio";
 export type Provider =
-  | "auto"
-  | "google"
-  | "lovable"
-  | "openrouter"
-  | "gemini"
-  | "openai"
-  | "elevenlabs"
-  | "deepgram";
+  "auto" | "google" | "lovable" | "openrouter" | "gemini" | "openai" | "elevenlabs" | "deepgram";
 export type TtsInput = {
   text: string;
   lang: string;
@@ -21,10 +14,20 @@ export type TtsInput = {
   options?: Record<string, unknown> | undefined;
 };
 export type ProviderUsage = { inputTokens?: number | undefined; outputTokens?: number | undefined };
-export type TtsResult = { audio: Uint8Array; mime: string; text: string; lang: string; provider: Provider; usage?: ProviderUsage | undefined };
+export type TtsResult = {
+  audio: Uint8Array;
+  mime: string;
+  text: string;
+  lang: string;
+  provider: Provider;
+  usage?: ProviderUsage | undefined;
+};
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -83,7 +86,9 @@ function chunkText(text: string, max = 180): string[] {
     } else cur = (cur + " " + w).trim();
   }
   if (cur) chunks.push(cur);
-  return chunks.flatMap((c) => (c.length > max ? (c.match(new RegExp(`.{1,${max}}`, "g")) ?? []) : [c]));
+  return chunks.flatMap((c) =>
+    c.length > max ? (c.match(new RegExp(`.{1,${max}}`, "g")) ?? []) : [c],
+  );
 }
 
 // ---------------- Google ----------------
@@ -102,7 +107,9 @@ async function googleTts(text: string, lang: string, speed?: number) {
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i] ?? "";
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(chunk)}&total=${chunks.length}&idx=${i}&textlen=${chunk.length}${speedParam}`;
-    const res = await fetch(url, { headers: { "User-Agent": UA, Referer: "https://translate.google.com/" } });
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA, Referer: "https://translate.google.com/" },
+    });
     if (!res.ok) throw new HttpError(502, `Google TTS failed (${res.status})`);
     parts.push(new Uint8Array(await res.arrayBuffer()));
   }
@@ -114,59 +121,101 @@ function translatePrompt(text: string, sl: string, tl: string) {
   return `Translate the following text${sl ? ` from ${sl}` : ""} to the language with code "${tl}". Reply with the translation only, nothing else.\n\n${text}`;
 }
 
-async function lovableTranslate(text: string, sl: string, tl: string, apiKey?: string, userId?: string) {
-  return withProviderKey('lovable', apiKey, (key) => fetch(`${GATEWAY}/responses`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "X-Lovable-AIG-SDK": "fetch",
+async function lovableTranslate(
+  text: string,
+  sl: string,
+  tl: string,
+  apiKey?: string,
+  userId?: string,
+) {
+  return withProviderKey(
+    "lovable",
+    apiKey,
+    (key) =>
+      fetch(`${GATEWAY}/responses`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "X-Lovable-AIG-SDK": "fetch",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-6-astra",
+          input: translatePrompt(text, sl, tl),
+          reasoning: { effort: "low" },
+          store: false,
+          stream: true,
+        }),
+      }),
+    async (res) => {
+      if (!res.ok)
+        throw new HttpError(
+          res.status,
+          `Lovable translate failed: ${(await res.text()).slice(0, 300)}`,
+        );
+      let out = "";
+      let usage: ProviderUsage | undefined;
+      await readSse(res, (d) => {
+        try {
+          const e = JSON.parse(d);
+          if (e.type === "response.output_text.delta") out += e.delta;
+          if (e.type === "response.completed" && e.response?.usage)
+            usage = {
+              inputTokens: e.response.usage.input_tokens,
+              outputTokens: e.response.usage.output_tokens,
+            };
+        } catch {
+          return;
+        }
+      });
+      if (!out.trim()) throw new HttpError(502, "Lovable translate returned empty text");
+      return { text: out.trim(), usage };
     },
-    body: JSON.stringify({
-      model: "openai/gpt-6-astra",
-      input: translatePrompt(text, sl, tl),
-      reasoning: { effort: "low" },
-      store: false,
-      stream: true,
-    }),
-  }), async (res) => {
-  if (!res.ok) throw new HttpError(res.status, `Lovable translate failed: ${(await res.text()).slice(0, 300)}`);
-  let out = "";
-  let usage: ProviderUsage | undefined;
-  await readSse(res, (d) => {
-    try {
-      const e = JSON.parse(d);
-      if (e.type === "response.output_text.delta") out += e.delta;
-      if (e.type === "response.completed" && e.response?.usage) usage = { inputTokens: e.response.usage.input_tokens, outputTokens: e.response.usage.output_tokens };
-    } catch {
-      return;
-    }
-  });
-  if (!out.trim()) throw new HttpError(502, "Lovable translate returned empty text");
-  return { text: out.trim(), usage };
-  }, userId);
+    userId,
+  );
 }
 
-async function lovableTts(text: string, voice = "Kore", speed?: number, options?: Record<string, unknown>, apiKey?: string, userId?: string) {
+async function lovableTts(
+  text: string,
+  voice = "Kore",
+  speed?: number,
+  options?: Record<string, unknown>,
+  apiKey?: string,
+  userId?: string,
+) {
   // Gemini TTS has no numeric speed param; steer pacing with a style instruction.
-  const spoken = speed && speed !== 1 ? `Say this ${speed < 1 ? "slowly" : "quickly"} (about ${speed}x normal pace): ${text}` : text;
-  return withProviderKey('lovable', apiKey, (key) => fetch(`${GATEWAY}/audio/speech`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-tts-preview",
-      contents: [{ role: "user", parts: [{ text: spoken }] }],
-      generationConfig: {
-        responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
-      stream_format: "audio",
-      ...options,
-    }),
-  }), async (res) => {
-  if (!res.ok) throw new HttpError(res.status, `Lovable TTS failed: ${(await res.text()).slice(0, 300)}`);
-  return { audio: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get("content-type") || "audio/wav" };
-  }, userId);
+  const spoken =
+    speed && speed !== 1
+      ? `Say this ${speed < 1 ? "slowly" : "quickly"} (about ${speed}x normal pace): ${text}`
+      : text;
+  return withProviderKey(
+    "lovable",
+    apiKey,
+    (key) =>
+      fetch(`${GATEWAY}/audio/speech`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-tts-preview",
+          contents: [{ role: "user", parts: [{ text: spoken }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+          },
+          stream_format: "audio",
+          ...options,
+        }),
+      }),
+    async (res) => {
+      if (!res.ok)
+        throw new HttpError(res.status, `Lovable TTS failed: ${(await res.text()).slice(0, 300)}`);
+      return {
+        audio: new Uint8Array(await res.arrayBuffer()),
+        mime: res.headers.get("content-type") || "audio/wav",
+      };
+    },
+    userId,
+  );
 }
 
 function pcmToWav(pcm: Uint8Array, sampleRate: number) {
@@ -191,63 +240,127 @@ function pcmToWav(pcm: Uint8Array, sampleRate: number) {
   return concat([new Uint8Array(header), pcm]);
 }
 
-async function geminiTts(text: string, lang: string, voice = "Kore", apiKey?: string, options?: Record<string, unknown>, userId?: string) {
-  const model = typeof options?.["model"] === "string" ? options["model"] : "gemini-2.5-flash-preview-tts";
-  return withProviderKey("gemini", apiKey, (key) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: `Speak naturally in ${lang}: ${text}` }] }],
-      generationConfig: {
-        responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
-    }),
-  }), async (response) => {
-    const result = await response.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-    };
-    const audioParts = result.candidates?.flatMap(candidate => candidate.content?.parts ?? []).flatMap(part => part.inlineData?.data ? [part.inlineData] : []) ?? [];
-    if (!audioParts.length) throw new HttpError(502, "Gemini returned no audio data");
-    const rate = Number(audioParts[0]?.mimeType?.match(/rate=(\d+)/)?.[1] ?? 24000);
-    return {
-      audio: pcmToWav(concat(audioParts.map(part => b64ToBytes(part.data!))), rate),
-      mime: "audio/wav",
-      usage: { inputTokens: result.usageMetadata?.promptTokenCount, outputTokens: result.usageMetadata?.candidatesTokenCount },
-    };
-  }, userId);
+async function geminiTts(
+  text: string,
+  lang: string,
+  voice = "Kore",
+  apiKey?: string,
+  options?: Record<string, unknown>,
+  userId?: string,
+) {
+  const model =
+    typeof options?.["model"] === "string" ? options["model"] : "gemini-2.5-flash-preview-tts";
+  return withProviderKey(
+    "gemini",
+    apiKey,
+    (key) =>
+      fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Speak naturally in ${lang}: ${text}` }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+            },
+          }),
+        },
+      ),
+    async (response) => {
+      const result = (await response.json()) as {
+        candidates?: Array<{
+          content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> };
+        }>;
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+      };
+      const audioParts =
+        result.candidates
+          ?.flatMap((candidate) => candidate.content?.parts ?? [])
+          .flatMap((part) => (part.inlineData?.data ? [part.inlineData] : [])) ?? [];
+      if (!audioParts.length) throw new HttpError(502, "Gemini returned no audio data");
+      const rate = Number(audioParts[0]?.mimeType?.match(/rate=(\d+)/)?.[1] ?? 24000);
+      return {
+        audio: pcmToWav(concat(audioParts.map((part) => b64ToBytes(part.data!))), rate),
+        mime: "audio/wav",
+        usage: {
+          inputTokens: result.usageMetadata?.promptTokenCount,
+          outputTokens: result.usageMetadata?.candidatesTokenCount,
+        },
+      };
+    },
+    userId,
+  );
 }
 
-async function openaiTts(text: string, lang: string, voice = "coral", apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
+async function openaiTts(
+  text: string,
+  lang: string,
+  voice = "coral",
+  apiKey?: string,
+  speed?: number,
+  options?: Record<string, unknown>,
+  userId?: string,
+) {
   const model = typeof options?.["model"] === "string" ? options["model"] : "gpt-4o-mini-tts";
-  return withProviderKey("openai", apiKey, (key) => fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      voice,
-      input: text,
-      response_format: "mp3",
-      ...(speed !== undefined && { speed }),
-      ...(typeof options?.["instructions"] === "string" ? { instructions: options["instructions"] } : { instructions: `Speak naturally in ${lang}.` }),
-    }),
-  }), async response => new Uint8Array(await response.arrayBuffer()), userId);
+  return withProviderKey(
+    "openai",
+    apiKey,
+    (key) =>
+      fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          voice,
+          input: text,
+          response_format: "mp3",
+          ...(speed !== undefined && { speed }),
+          ...(typeof options?.["instructions"] === "string"
+            ? { instructions: options["instructions"] }
+            : { instructions: `Speak naturally in ${lang}.` }),
+        }),
+      }),
+    async (response) => new Uint8Array(await response.arrayBuffer()),
+    userId,
+  );
 }
 
-async function elevenLabsTts(text: string, lang: string, voice = "JBFqnCBsd6RMkjVDRZzb", apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
-  const model = typeof options?.["model"] === "string" ? options["model"] : "eleven_multilingual_v2";
+async function elevenLabsTts(
+  text: string,
+  lang: string,
+  voice = "JBFqnCBsd6RMkjVDRZzb",
+  apiKey?: string,
+  speed?: number,
+  options?: Record<string, unknown>,
+  userId?: string,
+) {
+  const model =
+    typeof options?.["model"] === "string" ? options["model"] : "eleven_multilingual_v2";
   const voiceId = typeof options?.["voice_id"] === "string" ? options["voice_id"] : voice;
-  return withProviderKey("elevenlabs", apiKey, (key) => fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
-    method: "POST",
-    headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
-    body: JSON.stringify({
-      text,
-      model_id: model,
-      language_code: lang.toLowerCase().split("-")[0],
-      ...(speed !== undefined && { voice_settings: { speed: Math.max(0.7, Math.min(1.2, speed)) } }),
-    }),
-  }), async response => new Uint8Array(await response.arrayBuffer()), userId);
+  return withProviderKey(
+    "elevenlabs",
+    apiKey,
+    (key) =>
+      fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`,
+        {
+          method: "POST",
+          headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+          body: JSON.stringify({
+            text,
+            model_id: model,
+            language_code: lang.toLowerCase().split("-")[0],
+            ...(speed !== undefined && {
+              voice_settings: { speed: Math.max(0.7, Math.min(1.2, speed)) },
+            }),
+          }),
+        },
+      ),
+    async (response) => new Uint8Array(await response.arrayBuffer()),
+    userId,
+  );
 }
 
 const deepgramModels: Record<string, string> = {
@@ -330,11 +443,21 @@ function shuffled<T>(values: T[]): T[] {
   return result;
 }
 
-async function withProviderKey<T>(service: KeyService, apiKey: string | undefined, fn: (key: string) => Promise<Response>, parse: (r: Response) => Promise<T>, userId?: string): Promise<T> {
+async function withProviderKey<T>(
+  service: KeyService,
+  apiKey: string | undefined,
+  fn: (key: string) => Promise<Response>,
+  parse: (r: Response) => Promise<T>,
+  userId?: string,
+): Promise<T> {
   const supplied = apiKey?.trim();
   if (supplied) {
     const response = await fn(supplied);
-    if (!response.ok) throw new HttpError(response.status, `${service} rejected the request (HTTP ${response.status})`);
+    if (!response.ok)
+      throw new HttpError(
+        response.status,
+        `${service} rejected the request (HTTP ${response.status})`,
+      );
     return parse(response);
   }
   if (!userId && !hasSupabaseAdminConfig()) {
@@ -390,7 +513,8 @@ async function withProviderKey<T>(service: KeyService, apiKey: string | undefine
       : (await reserveKey(service, attempted)).key;
     if (!row) break;
     attempted.push(row.id);
-    const mark = (code: number) => userId ? markUserKey(userId, row.id, code) : markKey(row.id, code);
+    const mark = (code: number) =>
+      userId ? markUserKey(userId, row.id, code) : markKey(row.id, code);
     let response: Response;
     try {
       response = await fn(await decryptKey(row));
@@ -414,9 +538,15 @@ async function withProviderKey<T>(service: KeyService, apiKey: string | undefine
     await response.body?.cancel();
     await mark(response.status);
     if (BLOCKED.has(response.status) || response.status >= 500) continue;
-    throw new HttpError(response.status, `${service} rejected the request (HTTP ${response.status})`);
+    throw new HttpError(
+      response.status,
+      `${service} rejected the request (HTTP ${response.status})`,
+    );
   }
-  throw new HttpError(lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502, `All ${service} keys failed (HTTP ${lastStatus})`);
+  throw new HttpError(
+    lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502,
+    `All ${service} keys failed (HTTP ${lastStatus})`,
+  );
 }
 
 function providerKeySetupMessage(
@@ -426,18 +556,18 @@ function providerKeySetupMessage(
   supabaseAvailable = true,
 ) {
   const labels: Record<KeyService, string> = {
-    openrouter: 'OpenRouter',
-    lovable: 'Lovable AI',
-    gemini: 'Google Gemini',
-    openai: 'OpenAI',
-    elevenlabs: 'ElevenLabs',
-    deepgram: 'Deepgram',
+    openrouter: "OpenRouter",
+    lovable: "Lovable AI",
+    gemini: "Google Gemini",
+    openai: "OpenAI",
+    elevenlabs: "ElevenLabs",
+    deepgram: "Deepgram",
   };
   const envName = service.toUpperCase();
   const setup = userOwned
     ? "Add a provider API key in your account. Personal API tokens only use keys saved to that account."
     : `Set ${envName}_API_KEY or ${envName}_API_KEYS${supabaseAvailable ? ", or add a saved provider key" : ""}.`;
-  return `${labels[service]} requires an API key. ${savedKeysUnavailable ? `Saved keys could not be loaded. ` : ''}${setup}`;
+  return `${labels[service]} requires an API key. ${savedKeysUnavailable ? `Saved keys could not be loaded. ` : ""}${setup}`;
 }
 
 function orFetch(key: string, body: unknown) {
@@ -448,24 +578,48 @@ function orFetch(key: string, body: unknown) {
   });
 }
 
-async function openrouterTranslate(text: string, sl: string, tl: string, apiKey?: string, userId?: string) {
+async function openrouterTranslate(
+  text: string,
+  sl: string,
+  tl: string,
+  apiKey?: string,
+  userId?: string,
+) {
   return withProviderKey(
-    'openrouter',
+    "openrouter",
     apiKey,
-    (k) => orFetch(k, { model: "openai/gpt-4o-mini", messages: [{ role: "user", content: translatePrompt(text, sl, tl) }] }),
+    (k) =>
+      orFetch(k, {
+        model: "openai/gpt-4o-mini",
+        messages: [{ role: "user", content: translatePrompt(text, sl, tl) }],
+      }),
     async (r) => {
-      const j = (await r.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+      const j = (await r.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
       const t = j.choices?.[0]?.message?.content?.trim();
       if (!t) throw new HttpError(502, "OpenRouter translate returned empty text");
-      return { text: t, usage: { inputTokens: j.usage?.prompt_tokens, outputTokens: j.usage?.completion_tokens } };
+      return {
+        text: t,
+        usage: { inputTokens: j.usage?.prompt_tokens, outputTokens: j.usage?.completion_tokens },
+      };
     },
     userId,
   );
 }
 
-async function openrouterTts(text: string, lang: string, voice?: string, apiKey?: string, speed?: number, options?: Record<string, unknown>, userId?: string) {
+async function openrouterTts(
+  text: string,
+  lang: string,
+  voice?: string,
+  apiKey?: string,
+  speed?: number,
+  options?: Record<string, unknown>,
+  userId?: string,
+) {
   return withProviderKey(
-    'openrouter',
+    "openrouter",
     apiKey,
     (k) =>
       fetch("https://openrouter.ai/api/v1/audio/speech", {
@@ -486,9 +640,15 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
     );
   }
   const target = input.targetLang?.trim();
-  const request = target && target !== input.lang
-    ? { ...input, text: await googleTranslate(input.text, input.lang, target), lang: target, targetLang: undefined }
-    : input;
+  const request =
+    target && target !== input.lang
+      ? {
+          ...input,
+          text: await googleTranslate(input.text, input.lang, target),
+          lang: target,
+          targetLang: undefined,
+        }
+      : input;
   if (!input.userId && !hasSupabaseAdminConfig()) {
     const candidates = shuffled(
       KEY_SERVICES.flatMap((service) =>
@@ -517,7 +677,10 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
     try {
       await poolRows();
     } catch {
-      throw new HttpError(503, "Auto routing could not load provider keys. Check provider-key storage and environment configuration.");
+      throw new HttpError(
+        503,
+        "Auto routing could not load provider keys. Check provider-key storage and environment configuration.",
+      );
     }
   }
   const excluded: string[] = [];
@@ -529,7 +692,10 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
         ? await reserveAnyUserKey(input.userId, excluded)
         : await reserveAnyKey(excluded);
     } catch {
-      throw new HttpError(503, "Auto routing could not load provider keys. Check provider-key storage and environment configuration.");
+      throw new HttpError(
+        503,
+        "Auto routing could not load provider keys. Check provider-key storage and environment configuration.",
+      );
     }
     if (!row) break;
     excluded.push(row.id);
@@ -542,16 +708,24 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
       return { ...result, provider };
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 599;
-      const mark = input.userId ? markUserKey(input.userId, row.id, status) : markKey(row.id, status);
-      await mark.catch((markError) => console.error("Could not update provider key status", markError));
+      const mark = input.userId
+        ? markUserKey(input.userId, row.id, status)
+        : markKey(row.id, status);
+      await mark.catch((markError) =>
+        console.error("Could not update provider key status", markError),
+      );
       lastError = error;
-      if (error instanceof HttpError && !BLOCKED.has(error.status) && error.status < 500) throw error;
+      if (error instanceof HttpError && !BLOCKED.has(error.status) && error.status < 500)
+        throw error;
     }
   }
   if (lastError) throw lastError;
-  throw new HttpError(400, input.userId
-    ? "No provider key is available in your account. Add a key in your account settings."
-    : "Auto routing requires at least one configured provider key with no recent authentication or quota failure.");
+  throw new HttpError(
+    400,
+    input.userId
+      ? "No provider key is available in your account. Add a provider key in your account settings."
+      : "No provider key is available for Auto routing. Add a key in account settings or configure a provider key on the server.",
+  );
 }
 
 // ---------------- Entry ----------------
@@ -570,17 +744,32 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     )
       text = await googleTranslate(text, input.lang, target);
     else {
-      const translated = input.provider === "lovable"
-        ? await lovableTranslate(text, input.lang, target, input.apiKey, input.userId)
-        : await openrouterTranslate(text, input.lang, target, input.apiKey, input.userId);
+      const translated =
+        input.provider === "lovable"
+          ? await lovableTranslate(text, input.lang, target, input.apiKey, input.userId)
+          : await openrouterTranslate(text, input.lang, target, input.apiKey, input.userId);
       text = translated.text;
       usage = translated.usage;
     }
   }
   const lang = target || input.lang;
-  if (input.provider === "google") return { audio: await googleTts(text, lang, input.speed), mime: "audio/mpeg", text, lang, provider: "google" };
+  if (input.provider === "google")
+    return {
+      audio: await googleTts(text, lang, input.speed),
+      mime: "audio/mpeg",
+      text,
+      lang,
+      provider: "google",
+    };
   if (input.provider === "lovable") {
-    const r = await lovableTts(text, input.voice, input.speed, input.options, input.apiKey, input.userId);
+    const r = await lovableTts(
+      text,
+      input.voice,
+      input.speed,
+      input.options,
+      input.apiKey,
+      input.userId,
+    );
     return { ...r, text, lang, provider: "lovable", usage };
   }
   if (input.provider === "gemini") {
@@ -588,10 +777,40 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     return { ...r, text, lang, provider: "gemini", usage: mergeUsage(usage, r.usage) };
   }
   if (input.provider === "openai") {
-    return { audio: await openaiTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "openai", usage };
+    return {
+      audio: await openaiTts(
+        text,
+        lang,
+        input.voice,
+        input.apiKey,
+        input.speed,
+        input.options,
+        input.userId,
+      ),
+      mime: "audio/mpeg",
+      text,
+      lang,
+      provider: "openai",
+      usage,
+    };
   }
   if (input.provider === "elevenlabs") {
-    return { audio: await elevenLabsTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "elevenlabs", usage };
+    return {
+      audio: await elevenLabsTts(
+        text,
+        lang,
+        input.voice,
+        input.apiKey,
+        input.speed,
+        input.options,
+        input.userId,
+      ),
+      mime: "audio/mpeg",
+      text,
+      lang,
+      provider: "elevenlabs",
+      usage,
+    };
   }
   if (input.provider === "deepgram") {
     const r = await deepgramTts(
@@ -605,14 +824,35 @@ export async function synthesize(input: TtsInput): Promise<TtsResult> {
     );
     return { ...r, text, lang, provider: "deepgram", usage };
   }
-  return { audio: await openrouterTts(text, lang, input.voice, input.apiKey, input.speed, input.options, input.userId), mime: "audio/mpeg", text, lang, provider: "openrouter", usage };
+  return {
+    audio: await openrouterTts(
+      text,
+      lang,
+      input.voice,
+      input.apiKey,
+      input.speed,
+      input.options,
+      input.userId,
+    ),
+    mime: "audio/mpeg",
+    text,
+    lang,
+    provider: "openrouter",
+    usage,
+  };
 }
 
 function mergeUsage(a?: ProviderUsage, b?: ProviderUsage): ProviderUsage | undefined {
   if (!a && !b) return undefined;
   return {
-    inputTokens: a?.inputTokens === undefined && b?.inputTokens === undefined ? undefined : (a?.inputTokens ?? 0) + (b?.inputTokens ?? 0),
-    outputTokens: a?.outputTokens === undefined && b?.outputTokens === undefined ? undefined : (a?.outputTokens ?? 0) + (b?.outputTokens ?? 0),
+    inputTokens:
+      a?.inputTokens === undefined && b?.inputTokens === undefined
+        ? undefined
+        : (a?.inputTokens ?? 0) + (b?.inputTokens ?? 0),
+    outputTokens:
+      a?.outputTokens === undefined && b?.outputTokens === undefined
+        ? undefined
+        : (a?.outputTokens ?? 0) + (b?.outputTokens ?? 0),
   };
 }
 

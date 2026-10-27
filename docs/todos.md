@@ -1,13 +1,12 @@
 # Product backlog
 
-These are open, user-reported product issues. Keep implementation status and
-verification evidence in [the task ledger](./tasks.md); update this list when a
-todo is completed or reprioritized. Do not mark an item done from UI presence
-alone: verify the user flow and relevant API behavior.
+These are user-reported product issues. Keep implementation status and
+verification evidence in [the task ledger](./tasks.md). All four items below
+are implemented and verified; retain this record as completed backlog history.
 
 ## Provider keys and API testing
 
-### 1. Show useful saved-key status and test keys
+### 1. Show useful saved-key status and test keys — Done
 
 - Replace `unknown` in the OpenRouter saved-key row with a masked suffix (last
   four characters only); never return or render the full secret after save.
@@ -18,7 +17,7 @@ alone: verify the user flow and relevant API behavior.
 - Keep secrets encrypted at rest; do not put keys in URLs, browser logs, or
   server logs. Test response shapes and key-redaction behavior.
 
-### 2. Use saved OpenRouter keys for speech generation
+### 2. Use saved OpenRouter keys for speech generation — Done
 
 - Resolve the signed-in user's saved OpenRouter key for OpenRouter speech
   requests when no per-request key is supplied.
@@ -28,7 +27,7 @@ alone: verify the user flow and relevant API behavior.
 - Add coverage for resolution, adapter authorization, and safe errors when no
   usable key exists. Verify a successful mocked OpenRouter synthesis request.
 
-### 3. Keep Auto available when no provider keys are usable
+### 3. Keep Auto available when no provider keys are usable — Done
 
 - Do not remove or reset the `auto` provider selection after a failed request
   or a no-available-keys response.
@@ -36,7 +35,7 @@ alone: verify the user flow and relevant API behavior.
   healthy provider key is available, with guidance for configuring one.
 - Add UI regression tests for selection persistence and the no-key state.
 
-### 4. Use personal access tokens in the `/docs` API tester
+### 4. Use personal access tokens in the `/docs` API tester — Done
 
 - Add an authorization input to the interactive API tester so a user can paste
   a personal access token and apply it to eligible requests as a bearer token.

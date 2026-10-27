@@ -1,36 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
 
-const durable = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }));
+const durable = vi.hoisted(() => ({
+  rows: [] as Array<Record<string, unknown>>,
+  userRows: [] as Array<Record<string, unknown>>,
+  markedUserRows: [] as Array<Record<string, unknown>>,
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
-    from: () => ({
-      insert: async (row: Record<string, unknown>) => {
-        durable.rows.push({
-          ...row,
-          id: "independent-row-id",
-          status: "blocked",
-          failures: 3,
-          code: 401,
-          quarantined_until: null,
-        });
-        return { error: null };
-      },
-      upsert: async (rows: Array<Record<string, unknown>>) => {
-        durable.rows.push(
-          ...rows.map((row) => ({
+    from: (table: string) => {
+      const rows = table === "user_provider_api_keys" ? durable.userRows : durable.rows;
+      const filters: Record<string, unknown> = {};
+      const query = {
+        insert: async (row: Record<string, unknown>) => {
+          rows.push({
             ...row,
-            id: "environment-row-id",
-            status: "unknown",
-            failures: 0,
-            code: null,
+            id: "independent-row-id",
+            status: table === "user_provider_api_keys" ? "unknown" : "blocked",
+            failures: table === "user_provider_api_keys" ? 0 : 3,
+            code: table === "user_provider_api_keys" ? null : 401,
             quarantined_until: null,
-          })),
-        );
-        return { error: null };
-      },
-      select: () => ({ order: async () => ({ data: durable.rows, error: null }) }),
-    }),
+            created_at: new Date().toISOString(),
+            last_used: null,
+          });
+          return { error: null };
+        },
+        upsert: async (rows: Array<Record<string, unknown>>) => {
+          durable.rows.push(
+            ...rows.map((row) => ({
+              ...row,
+              id: "environment-row-id",
+              status: "unknown",
+              failures: 0,
+              code: null,
+              quarantined_until: null,
+            })),
+          );
+          return { error: null };
+        },
+        select: () => query,
+        eq: (column: string, value: unknown) => {
+          filters[column] = value;
+          return query;
+        },
+        order: async () => ({
+          data: rows.filter((row) =>
+            Object.entries(filters).every(([key, value]) => row[key] === value),
+          ),
+          error: null,
+        }),
+        maybeSingle: async () => ({
+          data:
+            rows.find((row) =>
+              Object.entries(filters).every(([key, value]) => row[key] === value),
+            ) ?? null,
+          error: null,
+        }),
+      };
+      return query;
+    },
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "mark_user_provider_key") durable.markedUserRows.push(args);
+      return { error: null };
+    },
   },
 }));
 beforeEach(() => {
@@ -44,7 +76,10 @@ beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY", "");
   vi.stubEnv("OPENAI_API_KEY", "");
   vi.stubEnv("ELEVENLABS_API_KEY", "");
+  vi.stubEnv("DEEPGRAM_API_KEY", "");
   durable.rows.length = 0;
+  durable.userRows.length = 0;
+  durable.markedUserRows.length = 0;
 });
 describe("durable key storage", () => {
   it("reads the saved key and status after all pool modules are reloaded", async () => {
@@ -110,5 +145,69 @@ describe("durable key storage", () => {
   it("rejects key management without a server-verified token", async () => {
     const pool = await import("@/lib/openrouter-pool.server");
     expect(await pool.authorizeManagement(new Request("http://localhost"))).toBe(false);
+  });
+
+  it("returns only a last-four suffix and useful initial status for personal keys", async () => {
+    const pool = await import("@/lib/openrouter-pool.server");
+    const secret = "synthetic-openrouter-key-1234";
+    await pool.addUserKey("owner-1", "openrouter", secret);
+
+    const [listed] = await pool.listUserKeys("owner-1");
+
+    expect(listed).toMatchObject({
+      service: "openrouter",
+      key_suffix: "1234",
+      status: "untested",
+    });
+    expect(JSON.stringify(listed)).not.toContain(secret);
+    expect(listed).not.toHaveProperty("ciphertext");
+    expect(listed).not.toHaveProperty("fingerprint");
+  });
+
+  it("tests personal OpenRouter keys and returns safe account/token status", async () => {
+    const pool = await import("@/lib/openrouter-pool.server");
+    const secret = "synthetic-openrouter-key-test";
+    await pool.addUserKey("owner-1", "openrouter", secret);
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${secret}`);
+      return Response.json({
+        data: {
+          label: "test key",
+          limit: 10,
+          limit_remaining: 8,
+          usage: 2,
+          is_free_tier: false,
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pool.testUserOpenRouterKey("owner-1", "independent-row-id");
+
+    expect(result).toMatchObject({
+      valid: true,
+      status: "valid",
+      account: { label: "test key", limit: 10, limit_remaining: 8, usage: 2 },
+    });
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(durable.markedUserRows).toEqual([
+      { owner_id: "owner-1", key_id: "independent-row-id", response_code: 200 },
+    ]);
+  });
+
+  it("does not return OpenRouter error response bodies or credentials", async () => {
+    const pool = await import("@/lib/openrouter-pool.server");
+    const secret = "synthetic-invalid-openrouter-key";
+    await pool.addUserKey("owner-1", "openrouter", secret);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: `Rejected ${secret}` }, { status: 401 })),
+    );
+
+    const result = await pool.testUserOpenRouterKey("owner-1", "independent-row-id");
+
+    expect(result).toMatchObject({ valid: false, status: "invalid", http_status: 401 });
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(JSON.stringify(result)).not.toContain("Rejected");
   });
 });

@@ -73,8 +73,14 @@ describe("public OpenAPI specification", () => {
     expect(openApiSpec.paths["/api/public/openapi.json"].get.operationId).toBe(
       "getOpenApiDocument",
     );
-    expect(openApiSpec.paths["/api/public/tts"].get.security).toEqual([]);
-    expect(openApiSpec.paths["/api/public/tts"].post.security).toEqual([]);
+    expect(openApiSpec.paths["/api/public/tts"].get.security).toEqual([
+      { personalApiTokenAuth: [] },
+      {},
+    ]);
+    expect(openApiSpec.paths["/api/public/tts"].post.security).toEqual([
+      { personalApiTokenAuth: [] },
+      {},
+    ]);
     expect(openApiSpec.paths["/api/public/openapi.json"].get.security).toEqual([]);
   });
 
@@ -91,12 +97,16 @@ describe("public OpenAPI specification", () => {
       keyManagement.post.requestBody.content["application/json"].schema.properties.service.enum,
     ).toContain("deepgram");
     expect(
-      keyManagement.delete.parameters.find((parameter) => parameter.name === "service")?.schema.enum,
+      keyManagement.delete.parameters.find((parameter) => parameter.name === "service")?.schema
+        .enum,
     ).toContain("deepgram");
-    expect(
-      openApiSpec.paths["/api/user/provider-keys"].post.requestBody.content["application/json"].schema
-        .properties.service.enum,
-    ).toContain("deepgram");
+    const personalKeyBody =
+      openApiSpec.paths["/api/user/provider-keys"].post.requestBody.content["application/json"]
+        .schema;
+    expect(personalKeyBody.properties.service.enum).toContain("deepgram");
+    expect(personalKeyBody.properties.key).toMatchObject({ type: "string", maxLength: 500 });
+    expect(personalKeyBody.properties.test).toMatchObject({ type: "boolean", const: true });
+    expect(personalKeyBody.anyOf).toContainEqual({ required: ["test", "id"] });
     expect(
       keyManagement.get.responses["200"].content["application/json"].schema.properties.keys.items
         .properties,

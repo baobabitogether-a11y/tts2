@@ -11,6 +11,7 @@ import {
 type ProviderKey = {
   id: string;
   service: string;
+  key_suffix: string;
   status: string;
   failures: number;
   code: number | null;
@@ -65,17 +66,18 @@ function formatClientError(
 ): string {
   const details: Record<string, unknown> = {};
   if (reason instanceof Error) {
-    details.name = reason.name;
-    details.message = reason.message;
+    details["name"] = reason.name;
+    details["message"] = reason.message;
     const error = reason as Error & Record<string, unknown>;
     for (const field of authErrorFields) {
       if (error[field] !== undefined) details[field] = error[field];
     }
+
     const cause = (reason as Error & { cause?: unknown }).cause;
     if (cause instanceof Error) {
-      details.cause = { name: cause.name, message: cause.message };
+      details["cause"] = { name: cause.name, message: cause.message };
     } else if (cause !== undefined) {
-      details.cause = cause;
+      details["cause"] = cause;
     }
   } else if (typeof reason === "object" && reason !== null) {
     const error = reason as Record<string, unknown>;
@@ -83,9 +85,9 @@ function formatClientError(
       if (error[field] !== undefined) details[field] = error[field];
     }
   } else {
-    details.message = String(reason);
+    details["message"] = String(reason);
   }
-  if (requestUrl) details.request_url = requestUrl;
+  if (requestUrl) details["request_url"] = requestUrl;
   if (response) {
     let body: unknown = response.body;
     if (response.body) {
@@ -95,7 +97,7 @@ function formatClientError(
         body = response.body;
       }
     }
-    details.response = {
+    details["response"] = {
       status: response.status,
       statusText: response.statusText,
       body,
@@ -131,6 +133,7 @@ function Account() {
   const [provider, setProvider] = useState<(typeof services)[number][0]>("openrouter");
   const [providerKey, setProviderKey] = useState("");
   const [keys, setKeys] = useState<ProviderKey[]>([]);
+  const [keyTests, setKeyTests] = useState<Record<string, string>>({});
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [tokenLabel, setTokenLabel] = useState("External agent");
   const [freshToken, setFreshToken] = useState("");
@@ -245,6 +248,36 @@ function Account() {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || "Account request failed");
     return body;
+  }
+
+  async function testKey(id: string) {
+    setError("");
+    setKeyTests((current) => ({ ...current, [id]: "Testing…" }));
+    try {
+      const result = (await accountRequest("/api/user/provider-keys", {
+        method: "POST",
+        body: JSON.stringify({ test: true, id }),
+      })) as { test: { status: string; message?: string; account?: Record<string, unknown> } };
+      const status = result.test.status.replaceAll("_", " ");
+      const details = result.test.account
+        ? Object.entries(result.test.account)
+            .map(
+              ([name, value]) =>
+                `${name}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`,
+            )
+            .join(" · ")
+        : result.test.message || "";
+      setKeyTests((current) => ({
+        ...current,
+        [id]: [status, details].filter(Boolean).join(" — "),
+      }));
+      await loadAccount(session!.access_token);
+    } catch (reason) {
+      setKeyTests((current) => ({
+        ...current,
+        [id]: reason instanceof Error ? reason.message : String(reason),
+      }));
+    }
   }
 
   async function addKey(event: FormEvent) {
@@ -443,10 +476,24 @@ function Account() {
                   <span className="min-w-32 flex-1">
                     {services.find(([id]) => id === key.service)?.[1] || key.service}
                   </span>
+                  <code aria-label={`${key.service} key suffix`} className="text-muted-foreground">
+                    ••••{key.key_suffix}
+                  </code>
                   <span className="text-muted-foreground">
                     {key.status}
                     {key.failures ? ` (${key.failures} failures)` : ""}
                   </span>
+                  {key.service === "openrouter" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || keyTests[key.id] === "Testing…"}
+                      onClick={() => void testKey(key.id)}
+                    >
+                      Test key
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -455,6 +502,11 @@ function Account() {
                   >
                     Remove
                   </Button>
+                  {keyTests[key.id] && (
+                    <span role="status" className="w-full text-xs text-muted-foreground">
+                      {keyTests[key.id]}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
