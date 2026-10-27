@@ -1,10 +1,49 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { closeSync, existsSync, openSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const output = resolve(".env.local-supabase");
+const codespacesDomain =
+  process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
+    ? `https://${process.env.CODESPACE_NAME}`
+    : undefined;
+const publicUrls = {
+  VITE_SUPABASE_URL:
+    process.env.LOCAL_SUPABASE_PUBLIC_URL ||
+    (codespacesDomain
+      ? `${codespacesDomain}-54321.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+      : "http://127.0.0.1:54321"),
+  LOCAL_APP_URL:
+    process.env.LOCAL_APP_URL ||
+    (codespacesDomain
+      ? `${codespacesDomain}-8080.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+      : "http://127.0.0.1:8080"),
+};
 if (existsSync(output)) {
-  console.log("Using existing .env.local-supabase");
+  let contents = readFileSync(output, "utf8");
+  let updated = false;
+  for (const [name, url] of Object.entries(publicUrls)) {
+    const setting = new RegExp(`^${name}=(.*)$`, "m");
+    const current = contents.match(setting)?.[1];
+    if (
+      current === undefined ||
+      process.env[name] ||
+      current === "http://127.0.0.1:54321" ||
+      current === "http://127.0.0.1:8080"
+    ) {
+      contents =
+        current === undefined
+          ? `${contents.trimEnd()}\n${name}=${url}\n`
+          : contents.replace(setting, `${name}=${url}`);
+      updated = true;
+    }
+  }
+  if (updated) writeFileSync(output, contents, { mode: 0o600 });
+  console.log(
+    updated
+      ? "Updated local browser URLs in .env.local-supabase"
+      : "Using existing .env.local-supabase",
+  );
   process.exit(0);
 }
 
@@ -32,8 +71,7 @@ const values = {
   SUPABASE_URL: "http://127.0.0.1:54321",
   SUPABASE_PUBLISHABLE_KEY: makeJwt("anon"),
   SUPABASE_SERVICE_ROLE_KEY: makeJwt("service_role"),
-  VITE_SUPABASE_URL: process.env.LOCAL_SUPABASE_PUBLIC_URL || "http://127.0.0.1:54321",
-  LOCAL_APP_URL: process.env.LOCAL_APP_URL || "http://127.0.0.1:8080",
+  ...publicUrls,
   OPENROUTER_KEY_ENCRYPTION_SECRET: randomBytes(48).toString("base64url"),
   PROVIDER_MANAGEMENT_TOKEN: randomBytes(32).toString("base64url"),
 };

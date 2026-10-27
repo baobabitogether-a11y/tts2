@@ -110,6 +110,27 @@ test("main navigation links reach the API reference and account page", async ({ 
   expect(errors, "navigation browser errors").toEqual([]);
 });
 
+test("account shows full Auth API errors to the user", async ({ page }) => {
+  await page.route("**/auth/v1/signup", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "gateway_not_found", message: "Auth route not found" }),
+    }),
+  );
+
+  await page.goto("/account");
+  await page.getByLabel("Email").fill("signup-error@example.test");
+  await page.getByLabel("Password").fill("not-a-real-password");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText('"status": 404');
+  await expect(alert).toContainText("gateway_not_found");
+  await expect(alert).toContainText("Auth route not found");
+  await expect(alert).toContainText("/auth/v1/signup");
+});
+
 test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({
   request,
 }) => {

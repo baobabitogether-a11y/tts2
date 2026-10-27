@@ -231,3 +231,37 @@ finilize then commit and push. ensuring any conclusions and solving issue or any
 ```
 
 **Status: Committed locally; push blocked by unavailable authentication.** Commit `68d805c` contains the implementation and documentation. `git push origin main` failed with `fatal: unable to get password from user`; `gh auth status` reports no authenticated GitHub host. Authenticate with `gh auth login` and push `main` to publish it to GitHub/Lovable.
+
+### 23. Codespaces forwarded URL returns 404
+
+```text
+https://dreadful-spooky-cemetery-9pr5x5969gr29xv9-9999.app.github.dev/
+
+error 404
+```
+
+**Status: Local app verified; external access unresolved.** Port `9999` is GoTrue's internal Auth port and its root returns 404. Local app health returns HTTP 200, but both derived external URLs for ports `8080` and `54321` returned HTTP 404. GitHub CLI cannot inspect the forwarded-port list because this session lacks the `codespace` auth scope. A generated URL is not proof of forwarding; verify actual port state/browse URLs in the VS Code Ports panel. See the new verify-before-sharing guidance in [AGENTS.md](../AGENTS.md) and [codespace.md](./codespace.md).
+
+### 24. Verify instructions before suggesting them
+
+```text
+why do instruct me to run into troubles? ensure checking before allowing / suggesting to run something
+```
+
+**Status: Guidance updated.** The app's local health was checked, but I mistakenly treated a derived Codespaces URL as useful advice without verifying its external route; the user-facing forwarded host returned HTTP 404, and this session cannot inspect port-forward state because GitHub CLI lacks Codespaces authorization. Added a project-wide rule to verify exact commands and public paths before recommending them, and to distinguish verified facts from prerequisites/unverified states. Startup now explicitly verifies local app health and identifies external port forwarding as unverified.
+
+### 25. Run the project and verify Docker health
+
+```text
+try to run it yourself first ! ensuring docker health check
+```
+
+**Status: Done locally.** Ran `./docker/manage.sh local-up`; Compose waited for all five containers (Postgres, PostgREST, GoTrue, gateway, web) to report `healthy`, then Drizzle migrations applied. App, REST, and Auth HTTP checks all returned 200; all 10 browser E2E tests passed; 6.8 GB disk remains available. The Codespaces external forwarded URLs still return 404, so public browser access remains unverified until VS Code forwards the ports. A first PostgREST healthcheck implementation failed because the upstream shell-less image lacks BusyBox's dynamic loader; replaced it with a BusyBox runtime image carrying the PostgREST binary and documented the recovery in [codespace.md](./codespace.md).
+
+### 26. Show full Auth errors to the client
+
+```text
+show full error to client!
+```
+
+**Status: Implemented and covered by E2E.** Account signup/signin failures now show structured error properties (name, message, status, code, details, hint, and cause when provided) and the Auth request URL; stack traces and request credentials are not exposed. The reported `https://<codespace>-54321.app.github.dev/auth/v1/signup` is on the public Auth endpoint. Direct probing of its `/auth/v1/health` returned an empty HTTP 404 from the Codespaces tunnel, even though local Auth and gateway checks returned 200. The browser-visible error should now clarify the failed public route; external forwarding itself still needs to be corrected/verified in the VS Code Ports panel.

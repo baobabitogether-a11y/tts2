@@ -77,21 +77,42 @@ wait_for_local_supabase() {
   return 1
 }
 
+wait_for_local_app() {
+  local attempt
+  for attempt in $(seq 1 60); do
+    if curl --fail --silent http://127.0.0.1:8080/health >/dev/null 2>&1; then
+      return
+    fi
+    sleep 2
+  done
+  echo "The local app did not become healthy on port 8080; inspect with ./docker/manage.sh local-logs." >&2
+  return 1
+}
+
 local_up() {
   node "$SCRIPT_DIR/local-env.mjs"
   POSTGRES_PASSWORD="$(local_env_value POSTGRES_PASSWORD)"
   SUPABASE_URL="$(local_env_value SUPABASE_URL)"
   SUPABASE_PUBLISHABLE_KEY="$(local_env_value SUPABASE_PUBLISHABLE_KEY)"
   VITE_SUPABASE_URL="$(local_env_value VITE_SUPABASE_URL)"
-  export POSTGRES_PASSWORD SUPABASE_URL SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
+  LOCAL_APP_URL="$(local_env_value LOCAL_APP_URL)"
+  export POSTGRES_PASSWORD SUPABASE_URL SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL LOCAL_APP_URL
 
   local_compose up -d --build --wait --wait-timeout 180
   wait_for_local_supabase
   LOVABLE_DB_MIGRATION_URL="postgres://postgres:${POSTGRES_PASSWORD}@127.0.0.1:5432/postgres" \
     npx drizzle-kit migrate
+  wait_for_local_app
   echo "Local Supabase and the app are running."
-  echo "App: http://127.0.0.1:8080"
-  echo "Supabase API: $VITE_SUPABASE_URL"
+  echo "Local app health verified: http://127.0.0.1:8080/health"
+  echo "Local Supabase REST/Auth health verified: http://127.0.0.1:54321"
+  if [[ -n "${CODESPACE_NAME:-}" ]]; then
+    echo "External browser access is not verified. Check the VS Code Ports panel and open its forwarded URL for port 8080."
+    echo "Forward port 54321 too if the browser needs Supabase sign-in."
+  else
+    echo "App: $LOCAL_APP_URL"
+    echo "Supabase API: $VITE_SUPABASE_URL"
+  fi
   echo "Studio is not included in this minimal host-network stack."
 }
 

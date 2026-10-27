@@ -119,9 +119,9 @@ Realtime, or Edge Functions. Use `./docker/manage.sh local-down` to stop it;
 the database volume is retained. To remove the database and all local data,
 run `./docker/manage.sh local-down --volumes`.
 
-For remote browser access such as Codespaces port forwarding, set
-`LOCAL_SUPABASE_PUBLIC_URL` to the forwarded HTTPS URL for port `54321` and
-`LOCAL_APP_URL` to the forwarded app URL for port `8080` before the first
-`local-up`. If `.env.local-supabase` already exists, edit its
-`VITE_SUPABASE_URL` and `LOCAL_APP_URL` values, then recreate the app and Auth
-containers. The server-side app continues to use loopback `SUPABASE_URL`.
+In Codespaces, `local-up` verifies health on local ports `8080` and `54321`, but
+cannot verify the Codespaces proxy or whether ports are forwarded. Use the
+VS Code Ports panel and open its forwarded URL for port `8080`; forward `54321`
+as well for browser sign-in. Do not treat the URL generated in
+`.env.local-supabase` as proof that the external URL is live. The server-side
+app and database continue to use loopback URLs.

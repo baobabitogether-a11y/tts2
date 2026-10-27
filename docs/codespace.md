@@ -84,9 +84,22 @@ was verified with HTTP health checks, actual GoTrue signup and admin cleanup,
 and a create/list/delete round-trip for a synthetic encrypted provider key.
 All 10 Playwright browser E2E tests passed against the configured stack;
 37 unit tests, production build, and Drizzle migration checks passed. The stack
-is deliberately minimal: it does not
+has Docker-native endpoint healthchecks for Postgres, PostgREST, GoTrue,
+gateway, and the app; `local-up` waits for them and independently probes app
+and REST/Auth URLs before reporting readiness. The stack is deliberately
+minimal: it does not
 include Supabase Studio, Storage, Realtime, or Edge Functions and is not the
 full `supabase start` stack.
+
+The PostgREST upstream image is a minimal shell-less image. Do not copy the
+BusyBox executable into it and assume it will run: the BusyBox binary from the
+standard image needs a dynamic loader that the upstream filesystem lacks, and
+Docker reports `exec /bin/busybox: no such file or directory`. Instead,
+`docker/postgrest-health.Dockerfile` uses BusyBox as the runtime base and copies
+the PostgREST binary into it; this provides a working HTTP healthcheck utility
+without needing a shell inside the PostgREST container. The Compose healthcheck
+for PostgREST probes its root OpenAPI response; the other services use their
+native installed probes.
 
 The command generates `.env.local-supabase` with mode `0600`; it is gitignored
 and contains local-only passwords, signing keys, and management credentials.
@@ -96,11 +109,38 @@ with `./docker/manage.sh local-down`; this retains database data.
 `./docker/manage.sh local-down --volumes` removes the database volume.
 `./docker/manage.sh local-logs` follows service logs.
 
-The default browser URL is `http://127.0.0.1:8080` and the API URL is
-`http://127.0.0.1:54321`. For Codespaces forwarded ports, set
-`LOCAL_APP_URL` and `LOCAL_SUPABASE_PUBLIC_URL` before the first `local-up`;
-otherwise update `LOCAL_APP_URL` and `VITE_SUPABASE_URL` in the generated env
-file and recreate the Auth and web containers.
+On a regular Docker host, browser URLs default to `http://127.0.0.1:8080` for
+the app and `http://127.0.0.1:54321` for the API. In Codespaces, the helper
+derives candidate public URLs from `CODESPACE_NAME` and
+`GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, but this is not evidence that the
+proxy has forwarded those ports. `local-up` verifies local app and REST/Auth
+health only. Open the VS Code Ports panel, confirm port `8080` is forwarded,
+and use the browse URL shown there; forward `54321` for browser-side Supabase
+Auth. Do not send a guessed URL as verified. Port `9999` is GoTrue's internal
+Auth listener, not the web app, and its root path returns 404. `SUPABASE_URL`
+remains loopback for server-side requests. After changing URLs, `local-up`
+recreates Auth/web services so their redirect allowlist and Vite client
+configuration take effect.
+
+#### Verify Codespaces port access before sharing a URL
+
+On 2026-10-27, local `http://127.0.0.1:8080/health` returned HTTP 200 while
+both derived external URLs for ports `8080` and `54321` returned HTTP 404. The
+GitHub CLI could not inspect the Codespace's forwarded-port list because this
+session lacks GitHub authentication (`gh codespace ports` requested the
+`codespace` auth scope). Therefore external access was not verified from the
+workspace. Check the actual forwarded-port state and browse URL in VS Code's
+Ports panel before telling a user a public URL works. If no port is forwarded,
+forward `8080`; also forward `54321` for client-side Auth. A local health check
+or generated URL cannot substitute for this external check.
+
+The public Auth endpoint `https://<codespace>-54321.app.github.dev/auth/v1/health`
+was probed and returned an empty HTTP 404 from the Codespaces tunnel even while
+local gateway/Auth health probes returned 200. Local Docker health does not
+establish that the forwarded public endpoint is reachable. The account page
+renders structured Auth errors, including HTTP status and error code when
+provided, plus the request URL, so failed signup/signin calls are visible to
+the user instead of showing only the error message.
 
 The failed full Supabase CLI retries accumulated large images. A targeted
 cleanup of unused Supabase components (Studio, Storage, Realtime, Edge Runtime,
