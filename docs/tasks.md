@@ -15,6 +15,7 @@ Preserve original prompts and detailed completion evidence in
 | `/tokens` provider-key and personal-token activity | Done | Service-role-backed history avoids storing credentials or provider response bodies. |
 | Responsive shell and themes | Done | Mobile navigation and System/Light/Dark themes are implemented. |
 | Playable audio history | Done | Successful playground audio is kept in browser-local IndexedDB (100 records / 50 MB) and listed on `/reports`. |
+| Provider key failure diagnostics | Done | API errors now explain likely causes by HTTP status, summarize attempted keys, include short sanitized provider error detail, and explicitly distinguish HTTP 5xx outages from invalid credentials. |
 | GitHub publishing | Blocked | Latest push failed because GitHub credentials were unavailable. Do not retry authentication unless requested. |
 | Documentation efficiency | Done | Frequent guidance and task status are concise; archives and environment/backlog references are routed by topic in [README.md](./README.md). |
 

@@ -412,6 +412,34 @@ test("Auto selection remains available after no-key synthesis failure", async ({
   await expect(page.getByLabel("Provider").getByRole("option", { name: /Auto/ })).toBeAttached();
 });
 
+test("provider outage errors explain that the key may still be valid", async ({ page }) => {
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error:
+          "Tried 2 OpenAI keys; results: HTTP 503 (2 keys). OpenAI is temporarily unavailable. This does not by itself mean the API key is invalid; test a saved key in Account or verify the server-configured key, then retry later if it is accepted.",
+      }),
+    }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Provider").selectOption("openai");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("Tried 2 OpenAI keys");
+  await expect(page.getByRole("alert")).toContainText(
+    "This does not by itself mean the API key is invalid",
+  );
+  await expect(
+    page.getByRole("link", { name: "Open Account to test your saved key" }),
+  ).toBeVisible();
+});
+
 test("docs API tester sends a personal token only as a bearer header", async ({ page }) => {
   const token = "spk_test-token-never-render";
   let authorization = "";

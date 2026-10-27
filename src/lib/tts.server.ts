@@ -433,6 +433,115 @@ import {
 } from "./openrouter-pool.server";
 export const startedAt = Date.now();
 const BLOCKED = new Set([401, 402, 403, 429]);
+const PROVIDER_LABELS: Record<KeyService, string> = {
+  openrouter: "OpenRouter",
+  lovable: "Lovable AI",
+  gemini: "Google Gemini",
+  openai: "OpenAI",
+  elevenlabs: "ElevenLabs",
+  deepgram: "Deepgram",
+};
+const PROVIDER_ERROR_BODY_LIMIT = 4096;
+
+type ProviderFailure = { status: number; detail?: string };
+
+async function providerErrorDetail(
+  response: Response,
+  apiKey: string,
+): Promise<string | undefined> {
+  const reader = response.body?.getReader();
+  if (!reader) return undefined;
+
+  const chunks: Uint8Array[] = [];
+  let bytesRead = 0;
+  try {
+    while (bytesRead < PROVIDER_ERROR_BODY_LIMIT) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const remaining = PROVIDER_ERROR_BODY_LIMIT - bytesRead;
+      const chunk = value.subarray(0, remaining);
+      chunks.push(chunk);
+      bytesRead += chunk.byteLength;
+      if (chunk.byteLength < value.byteLength) break;
+    }
+  } catch {
+    return undefined;
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(concat(chunks)));
+  } catch {
+    return undefined;
+  }
+  if (typeof payload !== "object" || payload === null) return undefined;
+
+  const error = Reflect.get(payload, "error");
+  const message =
+    typeof error === "object" && error !== null && typeof Reflect.get(error, "message") === "string"
+      ? Reflect.get(error, "message")
+      : typeof error === "string"
+        ? error
+        : Reflect.get(payload, "message");
+  if (typeof message !== "string") return undefined;
+
+  const sanitized = (apiKey ? message.replaceAll(apiKey, "[redacted]") : message)
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk)-[A-Za-z0-9_-]{12,}\b/g, "[redacted]")
+    .split("")
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 ? " " : character;
+    })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+  return sanitized || undefined;
+}
+
+function providerFailureExplanation(service: KeyService, status: number) {
+  const label = PROVIDER_LABELS[service];
+  if (status === 401)
+    return `${label} rejected the API key. Check that the key is current and correctly saved.`;
+  if (status === 403)
+    return `${label} denied access. Check the key's permissions and access to the requested model.`;
+  if (status === 402)
+    return `${label} reported a billing or account payment issue. Check the provider account.`;
+  if (status === 429)
+    return `${label} rate-limited the request or the account has reached a usage limit.`;
+  if (status === 503)
+    return `${label} is temporarily unavailable. This does not by itself mean the API key is invalid; test a saved key in Account or verify the server-configured key, then retry later if it is accepted.`;
+  if (status === 599)
+    return `Could not connect to ${label}. Check network access and retry; this does not by itself mean the API key is invalid.`;
+  if (status >= 500)
+    return `${label} returned a server error. This does not by itself mean the API key is invalid; retry later.`;
+  return `${label} rejected the request. Check the request settings and provider key permissions.`;
+}
+
+function summarizeProviderFailures(service: KeyService, failures: ProviderFailure[]) {
+  const label = PROVIDER_LABELS[service];
+  const latest = failures.at(-1);
+  if (!latest) {
+    return new HttpError(
+      503,
+      `No ${label} key could be reserved for this request. Check key availability and try again.`,
+    );
+  }
+  const counts = new Map<number, number>();
+  for (const failure of failures) counts.set(failure.status, (counts.get(failure.status) ?? 0) + 1);
+  const results = [...counts]
+    .map(([status, count]) => `HTTP ${status}${count > 1 ? ` (${count} keys)` : ""}`)
+    .join(", ");
+  const detail = latest.detail ? ` Provider detail: ${latest.detail}` : "";
+  const status = latest.status >= 400 && latest.status < 500 ? latest.status : 502;
+  return new HttpError(
+    status,
+    `Tried ${failures.length} ${label} key${failures.length === 1 ? "" : "s"}; results: ${results}. ${providerFailureExplanation(service, latest.status)}${detail}`,
+  );
+}
 
 function shuffled<T>(values: T[]): T[] {
   const result = [...values];
@@ -453,11 +562,13 @@ async function withProviderKey<T>(
   const supplied = apiKey?.trim();
   if (supplied) {
     const response = await fn(supplied);
-    if (!response.ok)
+    if (!response.ok) {
+      const detail = await providerErrorDetail(response, supplied);
       throw new HttpError(
         response.status,
-        `${service} rejected the request (HTTP ${response.status})`,
+        `${service} request failed (HTTP ${response.status}). ${providerFailureExplanation(service, response.status)}${detail ? ` Provider detail: ${detail}` : ""}`,
       );
+    }
     return parse(response);
   }
   if (!userId && !hasSupabaseAdminConfig()) {
@@ -465,36 +576,30 @@ async function withProviderKey<T>(
     if (!keys.length) {
       throw new HttpError(400, providerKeySetupMessage(service, false, Boolean(userId), false));
     }
-    let lastStatus = 503;
+    const failures: ProviderFailure[] = [];
     for (const key of keys) {
       let response: Response;
       try {
         response = await fn(key);
       } catch {
-        lastStatus = 502;
+        failures.push({ status: 502 });
         continue;
       }
       if (response.ok) {
         try {
           return await parse(response);
         } catch (error) {
-          lastStatus = 502;
+          failures.push({ status: 502 });
           if (error instanceof HttpError && error.status < 500) throw error;
           continue;
         }
       }
-      lastStatus = response.status;
-      await response.body?.cancel();
+      const detail = await providerErrorDetail(response, key);
+      failures.push({ status: response.status, ...(detail ? { detail } : {}) });
       if (BLOCKED.has(response.status) || response.status >= 500) continue;
-      throw new HttpError(
-        response.status,
-        `${service} rejected the request (HTTP ${response.status})`,
-      );
+      throw summarizeProviderFailures(service, failures);
     }
-    throw new HttpError(
-      lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502,
-      `All ${service} environment keys failed (HTTP ${lastStatus})`,
-    );
+    throw summarizeProviderFailures(service, failures);
   }
   let all: Array<{ id: string; ciphertext: string }>;
   try {
@@ -506,7 +611,7 @@ async function withProviderKey<T>(
     throw new HttpError(400, providerKeySetupMessage(service, false, Boolean(userId), true));
   }
   const attempted: string[] = [];
-  let lastStatus = 503;
+  const failures: ProviderFailure[] = [];
   for (let attempt = 0; attempt < all.length; attempt++) {
     const row = userId
       ? await reserveUserKey(userId, service, attempted)
@@ -516,10 +621,13 @@ async function withProviderKey<T>(
     const mark = (code: number) =>
       userId ? markUserKey(userId, row.id, code) : markKey(row.id, code);
     let response: Response;
+    let apiKey: string;
     try {
-      response = await fn(await decryptKey(row));
+      apiKey = await decryptKey(row);
+      response = await fn(apiKey);
     } catch {
       await mark(599);
+      failures.push({ status: 599 });
       continue;
     }
     if (response.ok) {
@@ -529,24 +637,18 @@ async function withProviderKey<T>(
         return result;
       } catch (error) {
         await mark(502);
-        lastStatus = 502;
+        failures.push({ status: 502 });
         if (error instanceof HttpError && error.status < 500) throw error;
         continue;
       }
     }
-    lastStatus = response.status;
-    await response.body?.cancel();
+    const detail = await providerErrorDetail(response, apiKey);
+    failures.push({ status: response.status, ...(detail ? { detail } : {}) });
     await mark(response.status);
     if (BLOCKED.has(response.status) || response.status >= 500) continue;
-    throw new HttpError(
-      response.status,
-      `${service} rejected the request (HTTP ${response.status})`,
-    );
+    throw summarizeProviderFailures(service, failures);
   }
-  throw new HttpError(
-    lastStatus >= 400 && lastStatus < 500 ? lastStatus : 502,
-    `All ${service} keys failed (HTTP ${lastStatus})`,
-  );
+  throw summarizeProviderFailures(service, failures);
 }
 
 function providerKeySetupMessage(
@@ -555,19 +657,11 @@ function providerKeySetupMessage(
   userOwned = false,
   supabaseAvailable = true,
 ) {
-  const labels: Record<KeyService, string> = {
-    openrouter: "OpenRouter",
-    lovable: "Lovable AI",
-    gemini: "Google Gemini",
-    openai: "OpenAI",
-    elevenlabs: "ElevenLabs",
-    deepgram: "Deepgram",
-  };
   const envName = service.toUpperCase();
   const setup = userOwned
     ? "Add a provider API key in your account. Personal API tokens only use keys saved to that account."
     : `Set ${envName}_API_KEY or ${envName}_API_KEYS${supabaseAvailable ? ", or add a saved provider key" : ""}.`;
-  return `${labels[service]} requires an API key. ${savedKeysUnavailable ? `Saved keys could not be loaded. ` : ""}${setup}`;
+  return `${PROVIDER_LABELS[service]} requires an API key. ${savedKeysUnavailable ? `Saved keys could not be loaded. ` : ""}${setup}`;
 }
 
 function orFetch(key: string, body: unknown) {

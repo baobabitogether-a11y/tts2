@@ -439,6 +439,45 @@ describe("provider API key errors", () => {
     expect(poolState.poolReads).toBe(0);
   });
 
+  it("explains OpenAI 503 failures without exposing saved API keys", async () => {
+    const secret = "openai-saved-secret";
+    poolState.userRows = [{ id: "owner-openai", service: "openai", ciphertext: secret }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { error: { message: `Service unavailable for key ${secret}` } },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    let rejection: unknown;
+    try {
+      await synthesize({
+        text: "Ciao",
+        lang: "it",
+        provider: "openai",
+        userId: "owner-a",
+      });
+    } catch (error) {
+      rejection = error;
+    }
+
+    expect(rejection).toMatchObject({
+      status: 502,
+      message: expect.stringContaining(
+        "OpenAI is temporarily unavailable. This does not by itself mean the API key is invalid",
+      ),
+    });
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toContain(
+      "Provider detail: Service unavailable for key [redacted]",
+    );
+    expect((rejection as Error).message).not.toContain(secret);
+    expect(poolState.userMarked).toEqual([["owner-a", "owner-openai", 503]]);
+  });
+
   it("Auto uses and marks only keys belonging to the personal-token owner", async () => {
     poolState.rows = [{ id: "shared-key", service: "openai", ciphertext: "shared-secret" }];
     poolState.userRows = [{ id: "owner-gemini", service: "gemini", ciphertext: "owner-secret" }];

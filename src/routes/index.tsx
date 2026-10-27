@@ -464,6 +464,11 @@ function Index() {
                 Add a provider key in your account
               </Link>
             )}
+            {info.includes("test a saved key in Account") && (
+              <Link to="/account" className="mt-1 inline-block underline">
+                Open Account to test your saved key
+              </Link>
+            )}
             {historyWarning && (
               <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
                 {historyWarning}

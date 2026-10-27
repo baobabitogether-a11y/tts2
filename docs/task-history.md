@@ -362,3 +362,42 @@ upgrade effeciency to .md files allowing future agent to read only what it shoul
 kept `docs/tasks.md` to a concise current-state index, added a topic-based docs
 index with direct Codespaces section links, and clarified in `AGENTS.md` to read
 backlog and history only when relevant.
+
+### 38. Explain provider API-key failures clearly
+
+```text
+its not clear why openapi key doesnt work:
+All openai keys failed (HTTP 503)
+
+## Request sent
+
+{
+  "method": "POST",
+  "url": "/api/public/tts",
+  "body": {
+    "text": "Ciao, come stai oggi? La luce della sera è bellissima.",
+    "lang": "it",
+    "provider": "openai"
+  }
+}
+
+## Response
+
+{
+  "status": 502,
+  "statusText": "",
+  "contentType": "application/json",
+  "body": {
+    "error": "All openai keys failed (HTTP 503)"
+  }
+}
+```
+
+**Status: Done.** Provider HTTP failures now report attempted-key counts,
+status-specific explanations, and a short sanitized provider message when
+available. HTTP 503 explicitly says that the key may still be valid and offers
+different next steps for saved versus server-configured keys; the playground
+links to Account to test a saved key. Provider error details are size-limited
+and known credential patterns are redacted. Updated OpenAPI error descriptions.
+Verified with 48 unit tests, 18 Docker E2E tests, production build, targeted
+lint, and `git diff --check`.

@@ -247,7 +247,10 @@ export const openApiSpec = {
               "application/json": { schema: { type: "object", properties: { error: {} } } },
             },
           },
-          "502": { description: "All eligible provider keys failed" },
+          "502": {
+            description:
+              "Provider request failed after key attempts. The error explains whether the provider rejected the key, reported a quota/billing issue, rejected request settings, or had a temporary outage; a 5xx response does not by itself mean the key is invalid.",
+          },
           "503": { description: "Provider key storage or routing is unavailable" },
         },
       },
@@ -276,7 +279,10 @@ export const openApiSpec = {
         responses: {
           "200": audioSuccessResponse,
           "400": { description: "Invalid input or no configured provider key is available" },
-          "502": { description: "All eligible provider keys failed" },
+          "502": {
+            description:
+              "Provider request failed after key attempts. The error explains whether the provider rejected the key, reported a quota/billing issue, rejected request settings, or had a temporary outage; a 5xx response does not by itself mean the key is invalid.",
+          },
           "503": { description: "Provider key storage or routing is unavailable" },
         },
       },

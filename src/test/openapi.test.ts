@@ -28,6 +28,9 @@ describe("public OpenAPI specification", () => {
     expect(
       openApiSpec.paths["/api/public/tts"].post.responses["200"].headers["X-Response-Time-Ms"],
     ).toBeDefined();
+    expect(openApiSpec.paths["/api/public/tts"].post.responses["502"].description).toContain(
+      "does not by itself mean the key is invalid",
+    );
     expect(openApiSpec.paths["/api/public/tts"].post.parameters[0]?.name).toBe(
       "X-Provider-API-Key",
     );
