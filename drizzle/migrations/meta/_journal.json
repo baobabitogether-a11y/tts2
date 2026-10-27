@@ -57,6 +57,13 @@
       "when": 1793060000005,
       "tag": "0007_provider_key_test_reservation",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793074959602,
+      "tag": "0008_restore_provider_key_event_schema",
+      "breakpoints": true
     }
   ]
 }

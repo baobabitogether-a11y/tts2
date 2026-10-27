@@ -263,6 +263,41 @@ export type Database = {
         }
         Relationships: []
       }
+      user_provider_key_events: {
+        Row: {
+          action: string
+          id: number
+          key_id: string
+          occurred_at: string
+          response_code: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          id?: never
+          key_id: string
+          occurred_at?: string
+          response_code: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          id?: never
+          key_id?: string
+          occurred_at?: string
+          response_code?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_provider_key_events_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "user_provider_api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -277,7 +312,12 @@ export type Database = {
         Returns: undefined
       }
       mark_user_provider_key: {
-        Args: { key_id: string; owner_id: string; response_code: number }
+        Args: {
+          action_name?: string
+          key_id: string
+          owner_id: string
+          response_code: number
+        }
         Returns: undefined
       }
       provider_usage_report: {
