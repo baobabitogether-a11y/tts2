@@ -429,3 +429,17 @@ Lovable deployment rather than a missing local code fix. The historical
 provider response body is unavailable; the original 503 cannot be diagnosed
 retroactively. Verify production again after the connected `main` branch is
 redeployed.
+
+### 40. Continue deployment verification
+
+```text
+go on
+```
+
+**Status: Hosted deployment pending.** Rechecked production and it still serves
+the old OpenAPI error description. The push command reported an authentication
+error, but a subsequent ref check confirmed both `main` and `origin/main` point
+to `9378e8e`. No deployment workflow exists in the repository. Rebuilt local
+app health is OK and its OpenAPI endpoint serves the new provider failure
+description. The connected Lovable deployment must complete; verify the
+production contract after it does.

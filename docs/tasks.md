@@ -16,8 +16,8 @@ Preserve original prompts and detailed completion evidence in
 | Responsive shell and themes | Done | Mobile navigation and System/Light/Dark themes are implemented. |
 | Playable audio history | Done | Successful playground audio is kept in browser-local IndexedDB (100 records / 50 MB) and listed on `/reports`. |
 | Provider key failure diagnostics | Done | API errors now explain likely causes by HTTP status, summarize attempted keys, include short sanitized provider error detail, and explicitly distinguish HTTP 5xx outages from invalid credentials. |
-| GitHub publishing | Synced to origin | `main` and `origin/main` both point to `c8ebd0e`. The hosted Lovable app has not picked up this commit yet; verify its API contract after redeploying. |
-| Hosted provider diagnostics | Deployment pending | Local app and API contract contain the improved 503 explanation; production `/api/public/openapi.json` still says “All eligible provider keys failed.” Redeploy the connected `main` branch, then recheck the published contract. |
+| GitHub publishing | Synced | Verified `main` and `origin/main` both point to `9378e8e`. A push attempt reported an authentication error, but the remote ref is now current. |
+| Hosted provider diagnostics | Deployment pending | Production `/api/public/openapi.json` still says “All eligible provider keys failed,” while the local app serves the improved 503 explanation. Trigger or await the connected Lovable deployment, then recheck the published contract. |
 | Documentation efficiency | Done | Frequent guidance and task status are concise; archives and environment/backlog references are routed by topic in [README.md](./README.md). |
 
 ## Current documentation task
