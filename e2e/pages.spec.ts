@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const pages = [
-  { path: "/", heading: "speak/api" },
+  { path: "/", heading: "Turn your words into voice." },
   { path: "/account", heading: "Your Speak API account" },
   { path: "/docs", heading: "Speak API API reference" },
   { path: "/openrouter", heading: "Provider keys" },
@@ -105,11 +105,16 @@ test("main navigation links reach the API reference, account, and token activity
   await expect(page.getByRole("heading", { name: "Speak API API reference" })).toBeVisible();
   await page.getByRole("link", { name: "Back to speech" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole("link", { name: "Create account / manage keys" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Account" })
+    .click();
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("heading", { name: "Your Speak API account" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Tokens" })).toBeVisible();
-  await page.getByRole("link", { name: "Tokens" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Tokens" })
+    .click();
   await expect(page).toHaveURL(/\/tokens$/);
   await expect(page.getByRole("heading", { name: "Tokens and key activity" })).toBeVisible();
   await page.getByRole("link", { name: "Back to speech" }).click();
@@ -117,6 +122,58 @@ test("main navigation links reach the API reference, account, and token activity
   await page.waitForLoadState("networkidle");
 
   expect(errors, "navigation browser errors").toEqual([]);
+});
+
+test("mobile menu, theme choices, and page layouts work on a narrow viewport", async ({ page }) => {
+  const errors = trackBrowserErrors(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const menuButton = page.getByRole("button", { name: "Open navigation menu" });
+  await expect(menuButton).toBeVisible();
+  await menuButton.click();
+  const mobileNavigation = page.getByRole("navigation", { name: "Mobile navigation" });
+  const tokenLink = mobileNavigation.getByRole("link", { name: "Tokens" });
+  await expect(tokenLink).toBeVisible();
+  await tokenLink.click();
+  await expect(page).toHaveURL(/\/tokens$/);
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeHidden();
+
+  for (const path of ["/", "/docs", "/account", "/reports", "/tokens"]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.content, `${path} should fit in the mobile viewport`).toBeLessThanOrEqual(
+      dimensions.viewport,
+    );
+  }
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const themeButton = page.locator("header").getByRole("button", { name: /Theme:/ });
+  await themeButton.click();
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("light");
+  await themeButton.click();
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("dark");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  expect(errors, "mobile browser errors").toEqual([]);
 });
 
 test("account shows full Auth API errors to the user", async ({ page }) => {

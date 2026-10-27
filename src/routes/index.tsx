@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
 });
 
 const field =
-  "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground";
+  "w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring";
 const quickSamples = {
   fr: {
     text: "Bonjour, comment allez-vous aujourd'hui ? La lumière du soir est magnifique.",
@@ -206,28 +206,35 @@ function Index() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16 font-mono text-foreground">
-      <h1 className="text-2xl font-bold">speak/api</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Text → (translate) → audio. CORS open.{" "}
-        <Link to="/docs" className="underline">
-          API reference
-        </Link>
-        {" · "}
-        <a className="underline" href="/api/public/openapi.json">
-          OpenAPI JSON
-        </a>
-      </p>
-      <nav className="mt-3 flex gap-4 text-sm text-muted-foreground">
-        <Link to="/account" className="underline hover:text-foreground">
-          Create account / manage keys
-        </Link>
-        <Link to="/tokens" className="underline hover:text-foreground">
-          Token activity
-        </Link>
-      </nav>
+    <main className="mx-auto max-w-4xl px-4 py-10 text-foreground sm:px-6 sm:py-14 lg:px-8">
+      <header className="mb-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Speak API playground
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+          Turn your words into voice.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+          Generate natural speech, translate as you go, and choose from a range of providers.
+          Explore the{" "}
+          <Link to="/docs" className="font-medium text-foreground underline underline-offset-4">
+            API reference
+          </Link>{" "}
+          or view the{" "}
+          <a
+            className="font-medium text-foreground underline underline-offset-4"
+            href="/api/public/openapi.json"
+          >
+            OpenAPI document
+          </a>
+          .
+        </p>
+      </header>
 
-      <section className="mt-10 space-y-3">
+      <section
+        aria-label="Speech playground"
+        className="space-y-5 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-7"
+      >
         <label className="block text-xs text-muted-foreground">
           Provider
           <select
@@ -247,7 +254,7 @@ function Index() {
           </select>
         </label>
         {form.provider === "auto" && (
-          <p className="text-xs text-muted-foreground">
+          <p className="rounded-lg bg-muted px-3 py-2.5 text-xs leading-5 text-muted-foreground">
             Auto randomly selects a configured provider key that has no recent authentication or
             quota failures. To supply your own key for one request, select its specific provider.
           </p>
@@ -255,7 +262,7 @@ function Index() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-2 bg-foreground px-3 py-2 text-sm text-background disabled:opacity-50"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             disabled={busy}
             onClick={() => void run(quickSamples.fr)}
           >
@@ -264,7 +271,7 @@ function Index() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 bg-foreground px-3 py-2 text-sm text-background disabled:opacity-50"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             disabled={busy}
             onClick={() => void run(quickSamples.it)}
           >
@@ -276,7 +283,7 @@ function Index() {
           Text to speak
           <textarea className={`${field} mt-1`} rows={3} value={form.text} onChange={setText} />
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block text-xs text-muted-foreground">
             Text language
             <input
@@ -307,8 +314,8 @@ function Index() {
             ))}
           </datalist>
         </div>
-        <details className="border-t border-border pt-3">
-          <summary className="cursor-pointer text-sm">Advanced settings</summary>
+        <details className="rounded-lg border border-border px-3 py-3">
+          <summary className="cursor-pointer text-sm font-medium">Advanced settings</summary>
           <div className="mt-3 space-y-3">
             {form.provider !== "auto" && form.provider !== "google" && (
               <label className="block text-xs text-muted-foreground">
@@ -402,7 +409,7 @@ function Index() {
         <button
           onClick={() => void run()}
           disabled={busy}
-          className="bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {busy ? "Generating…" : "Generate audio"}
         </button>
@@ -419,28 +426,28 @@ function Index() {
         {audio && <audio className="w-full" controls src={audio} />}
         {lastRequest && (
           <section className="border-t border-border pt-4">
-            <h2 className="text-sm font-bold">Request sent</h2>
-            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">
+            <h2 className="text-sm font-semibold">Request sent</h2>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               {JSON.stringify(lastRequest, null, 2)}
             </pre>
           </section>
         )}
         {lastResponse && (
           <section className="border-t border-border pt-4">
-            <h2 className="text-sm font-bold">Response</h2>
-            <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">
+            <h2 className="text-sm font-semibold">Response</h2>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               {JSON.stringify(lastResponse, null, 2)}
             </pre>
           </section>
         )}
       </section>
 
-      <details className="mt-12">
-        <summary className="cursor-pointer text-sm font-bold">API details</summary>
-        <h2 className="text-sm font-bold">curl</h2>
-        <pre className="mt-2 overflow-x-auto bg-muted p-3 text-xs">{`curl "$HOST/api/public/tts?text=Hello&lang=en&target_lang=fr&provider=google" -o out.mp3`}</pre>
-        <h2 className="mt-6 text-sm font-bold">OpenAPI</h2>
-        <pre className="mt-2 max-h-96 overflow-auto bg-muted p-3 text-xs">
+      <details className="mt-8 rounded-xl border border-border px-4 py-3">
+        <summary className="cursor-pointer text-sm font-semibold">API quick reference</summary>
+        <h2 className="mt-4 text-sm font-semibold">curl</h2>
+        <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">{`curl "$HOST/api/public/tts?text=Hello&lang=en&target_lang=fr&provider=google" -o out.mp3`}</pre>
+        <h2 className="mt-6 text-sm font-semibold">OpenAPI</h2>
+        <pre className="mt-2 max-h-96 overflow-auto rounded-lg bg-muted p-3 text-xs">
           {JSON.stringify(openApiSpec, null, 2)}
         </pre>
       </details>

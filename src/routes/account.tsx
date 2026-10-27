@@ -371,9 +371,6 @@ function Account() {
         <Link to="/reports" className="hover:text-foreground">
           Usage
         </Link>
-        <Link to="/tokens" className="hover:text-foreground">
-          Tokens
-        </Link>
       </nav>
       <h1 className="mt-5 text-2xl font-semibold">Your Speak API account</h1>
       {loadingSession ? (
