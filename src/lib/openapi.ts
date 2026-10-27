@@ -647,13 +647,6 @@ export const openApiSpec = {
           "401": { description: "Valid Supabase session required" },
         },
       },
-      post: {
-        operationId: "savePersonalProviderKey",
-        summary: "Save a personal provider key",
-        security: [{ supabaseSessionAuth: [] }],
-        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["service", "key"], properties: { service: { type: "string", enum: ["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram", "azure", "googlecloud"] }, key: { type: "string", maxLength: 500 } } } } } },
-        responses: { "201": { description: "Provider key saved and encrypted" }, "409": { description: "Key already saved for this account" }, "401": { description: "Valid Supabase session required" } },
-      },
       delete: {
         operationId: "removePersonalProviderKey",
         summary: "Remove a personal provider key",
