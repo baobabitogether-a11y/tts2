@@ -10,6 +10,10 @@ import { loadEnv, type ConfigEnv } from "vite";
 const config = defineConfig({
   vite: {
     server: {
+      host: "0.0.0.0",
+      port: 5000,
+      strictPort: true,
+      allowedHosts: true,
       proxy: {
         "/auth/v1": {
           target: "http://127.0.0.1:54321",
