@@ -17,6 +17,7 @@
 
 ## Development notes
 
+- Docs index: [task history](docs/tasks.md) (append verbatim requests/status), [product backlog](docs/todos.md) (open todos), [roadmap](roadmap.md) (planned features), and [Codespaces guide](docs/codespace.md) (verified environment behavior). Keep this file as concise cross-cutting guidance; do not duplicate document contents here.
 - Maintain project development guidance and task records in `docs/*.md`. Add reusable, actionable lessons when a workflow hits a reproducible mistake or environment limitation; document the symptom, confirmed cause, recovery or workaround, and what future work should avoid. Do not record credentials, provider keys, session-only secrets, or guesses as facts.
 - Before instructing someone to run a command, open a URL, or change environment/port settings, inspect the current project and environment and verify the exact command or target whenever possible. Check the real service/route and external path, not just a local process or generated URL. If access, authentication, UI state, or host policy prevents verification, state precisely what was verified, what remains unverified, and the prerequisite; never present a guessed URL or assumed state as working.
 - Keep `docs/tasks.md` as the task ledger: preserve user prompts verbatim, track each request's status, and update the status and evidence when work is completed, blocked, or resumed. Add new prompts rather than silently rewriting history.

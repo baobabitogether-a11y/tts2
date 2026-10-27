@@ -286,3 +286,27 @@ create a script ensuring app is up and running with use of the relevant ports
 ```
 
 **Status: Implemented.** Added the root `./start.sh` entry point to start the Docker Compose app/database stack, apply migrations, then verify PostgreSQL TCP `5432`, API gateway `54321`, app `8080`, the same-origin Auth proxy, and all five Docker health statuses. In Codespaces it instructs the user to forward port `8080` in the Ports panel; external forwarding cannot be determined from the local service health checks.
+
+### 29. Record OpenRouter, Auto, and API tester issues
+
+```text
+0. add todos: (manage it using your AGENTS.md aware docs, assuming all docs are at reach from AGENTS.md while keeping itself slim and effecient)
+
+todos:
+1. one can add openrouter key.
+unfortunatly it then presented as:
+OpenRouter
+unknown
+Remove
+- more reasonable to show the last X key degits and have a button to test the key & token status.
+
+2. and later try to use the system to generate voice but it fails with error:
+OpenRouter requires an API key. Set OPENROUTER_API_KEY or OPENROUTER_API_KEYS, or add a saved provider key.
+
+3. when setting the provider to auto :
+- it also shows error for no available keys and then the option of auto is removed
+
+4. i have generated an access-token key but the app doesnt provide a place to use it such as on /docs to be included withing requests issued from that api-testing page
+```
+
+**Status: Recorded; implementation remains open.** Added four prioritized, actionable product todos to [todos.md](./todos.md): masked OpenRouter key/status and test action, using saved OpenRouter keys for speech, retaining Auto with useful no-key guidance, and bearer-token support in the `/docs` tester. Linked the task ledger, backlog, roadmap, and environment guide from [AGENTS.md](../AGENTS.md) without duplicating their contents there.
