@@ -121,7 +121,8 @@ run `./docker/manage.sh local-down --volumes`.
 
 In Codespaces, `local-up` verifies health on local ports `8080` and `54321`, but
 cannot verify the Codespaces proxy or whether ports are forwarded. Use the
-VS Code Ports panel and open its forwarded URL for port `8080`; forward `54321`
-as well for browser sign-in. Do not treat the URL generated in
-`.env.local-supabase` as proof that the external URL is live. The server-side
-app and database continue to use loopback URLs.
+VS Code Ports panel and open its forwarded URL for port `8080`. Browser-side
+Supabase Auth uses the app's same-origin `/auth/v1` proxy, so port `54321`
+does not need external forwarding. Do not treat the URL generated in
+`.env.local-supabase` as proof that the external app URL is live. The
+server-side app and database continue to use loopback URLs.

@@ -10,9 +10,10 @@ const codespacesDomain =
 const publicUrls = {
   VITE_SUPABASE_URL:
     process.env.LOCAL_SUPABASE_PUBLIC_URL ||
+    process.env.LOCAL_APP_URL ||
     (codespacesDomain
-      ? `${codespacesDomain}-54321.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
-      : "http://127.0.0.1:54321"),
+      ? `${codespacesDomain}-8080.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+      : "http://127.0.0.1:8080"),
   LOCAL_APP_URL:
     process.env.LOCAL_APP_URL ||
     (codespacesDomain
@@ -25,9 +26,13 @@ if (existsSync(output)) {
   for (const [name, url] of Object.entries(publicUrls)) {
     const setting = new RegExp(`^${name}=(.*)$`, "m");
     const current = contents.match(setting)?.[1];
+    const oldCodespacesAuthUrl = codespacesDomain
+      ? `${codespacesDomain}-54321.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+      : undefined;
     if (
       current === undefined ||
       process.env[name] ||
+      (name === "VITE_SUPABASE_URL" && current === oldCodespacesAuthUrl) ||
       current === "http://127.0.0.1:54321" ||
       current === "http://127.0.0.1:8080"
     ) {

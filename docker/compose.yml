@@ -13,6 +13,7 @@ services:
       CI: "true"
       NODE_ENV: test
       PLAYWRIGHT_BASE_URL: ${PLAYWRIGHT_BASE_URL:-}
+      PLAYWRIGHT_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
       PLAYWRIGHT_OUTPUT_DIR: /workspace/docker/artifacts/test-results
       PLAYWRIGHT_HTML_OUTPUT_DIR: /workspace/docker/artifacts/playwright-report
     volumes:

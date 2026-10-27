@@ -108,7 +108,7 @@ local_up() {
   echo "Local Supabase REST/Auth health verified: http://127.0.0.1:54321"
   if [[ -n "${CODESPACE_NAME:-}" ]]; then
     echo "External browser access is not verified. Check the VS Code Ports panel and open its forwarded URL for port 8080."
-    echo "Forward port 54321 too if the browser needs Supabase sign-in."
+    echo "Supabase Auth uses the app's same-origin /auth/v1 proxy; forwarding port 54321 is not required."
   else
     echo "App: $LOCAL_APP_URL"
     echo "Supabase API: $VITE_SUPABASE_URL"

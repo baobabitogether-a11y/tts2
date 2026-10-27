@@ -111,12 +111,16 @@ test("main navigation links reach the API reference and account page", async ({ 
 });
 
 test("account shows full Auth API errors to the user", async ({ page }) => {
+  let signupRequestUrl = "";
   await page.route("**/auth/v1/signup", (route) =>
-    route.fulfill({
-      status: 404,
-      contentType: "application/json",
-      body: JSON.stringify({ code: "gateway_not_found", message: "Auth route not found" }),
-    }),
+    (async () => {
+      signupRequestUrl = route.request().url();
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ code: "gateway_not_found", message: "Auth route not found" }),
+      });
+    })(),
   );
 
   await page.goto("/account");
@@ -129,6 +133,13 @@ test("account shows full Auth API errors to the user", async ({ page }) => {
   await expect(alert).toContainText("gateway_not_found");
   await expect(alert).toContainText("Auth route not found");
   await expect(alert).toContainText("/auth/v1/signup");
+  expect(new URL(signupRequestUrl).origin).toBe(
+    new URL(
+      process.env["PLAYWRIGHT_SUPABASE_URL"] ||
+        process.env["PLAYWRIGHT_BASE_URL"] ||
+        "http://127.0.0.1:4173",
+    ).origin,
+  );
 });
 
 test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({

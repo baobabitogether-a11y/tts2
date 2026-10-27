@@ -265,3 +265,16 @@ show full error to client!
 ```
 
 **Status: Implemented and covered by E2E.** Account signup/signin failures now show structured error properties (name, message, status, code, details, hint, and cause when provided) and the Auth request URL; stack traces and request credentials are not exposed. The reported `https://<codespace>-54321.app.github.dev/auth/v1/signup` is on the public Auth endpoint. Direct probing of its `/auth/v1/health` returned an empty HTTP 404 from the Codespaces tunnel, even though local Auth and gateway checks returned 200. The browser-visible error should now clarify the failed public route; external forwarding itself still needs to be corrected/verified in the VS Code Ports panel.
+
+### 27. Resolve browser Auth fetch failure
+
+```text
+{
+  "name": "AuthRetryableFetchError",
+  "message": "Failed to fetch",
+  "status": 0,
+  "request_url": "https://<codespace>-54321.app.github.dev/auth/v1/signup"
+}
+```
+
+**Status: Implemented and verified.** The Codespaces tunnel returns an empty 404 for the public 54321 URL while local Auth is healthy, and the browser's status 0 confirms it received no HTTP response. Updated the local Codespaces client URL to use the app origin on port 8080 and configured Vite to proxy `/auth/v1` to the local gateway. Local `/auth/v1/health` through the app proxy returns 200, and all 11 browser E2E tests pass with an assertion that Auth requests use the configured app origin. Browser signup no longer requires separately forwarding port 54321 or issuing a cross-origin request. The public app URL redirects to Codespaces tunnel authentication from this shell (HTTP 302/401), so user browser access still requires a valid VS Code/Codespaces session and port 8080 forwarding.

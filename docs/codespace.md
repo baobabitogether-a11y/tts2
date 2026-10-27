@@ -109,14 +109,16 @@ with `./docker/manage.sh local-down`; this retains database data.
 `./docker/manage.sh local-down --volumes` removes the database volume.
 `./docker/manage.sh local-logs` follows service logs.
 
-On a regular Docker host, browser URLs default to `http://127.0.0.1:8080` for
-the app and `http://127.0.0.1:54321` for the API. In Codespaces, the helper
-derives candidate public URLs from `CODESPACE_NAME` and
-`GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, but this is not evidence that the
-proxy has forwarded those ports. `local-up` verifies local app and REST/Auth
-health only. Open the VS Code Ports panel, confirm port `8080` is forwarded,
-and use the browse URL shown there; forward `54321` for browser-side Supabase
-Auth. Do not send a guessed URL as verified. Port `9999` is GoTrue's internal
+On a regular Docker host, the browser app defaults to
+`http://127.0.0.1:8080`; the local REST/Auth API gateway listens at
+`http://127.0.0.1:54321`. Browser Supabase Auth is proxied through the app's
+same-origin `/auth/v1` path, avoiding a separate browser connection to port
+`54321`. In Codespaces, the helper derives a candidate public app URL from
+`CODESPACE_NAME` and `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, but this is not
+evidence that the proxy has forwarded the port. `local-up` verifies local app
+and REST/Auth health only. Open the VS Code Ports panel, confirm port `8080` is
+forwarded, and use the browse URL shown there. Do not send a guessed URL as
+verified. Port `9999` is GoTrue's internal
 Auth listener, not the web app, and its root path returns 404. `SUPABASE_URL`
 remains loopback for server-side requests. After changing URLs, `local-up`
 recreates Auth/web services so their redirect allowlist and Vite client
@@ -131,16 +133,19 @@ session lacks GitHub authentication (`gh codespace ports` requested the
 `codespace` auth scope). Therefore external access was not verified from the
 workspace. Check the actual forwarded-port state and browse URL in VS Code's
 Ports panel before telling a user a public URL works. If no port is forwarded,
-forward `8080`; also forward `54321` for client-side Auth. A local health check
-or generated URL cannot substitute for this external check.
+forward `8080`. A local health check or generated URL cannot substitute for
+this external check.
 
 The public Auth endpoint `https://<codespace>-54321.app.github.dev/auth/v1/health`
 was probed and returned an empty HTTP 404 from the Codespaces tunnel even while
-local gateway/Auth health probes returned 200. Local Docker health does not
-establish that the forwarded public endpoint is reachable. The account page
-renders structured Auth errors, including HTTP status and error code when
-provided, plus the request URL, so failed signup/signin calls are visible to
-the user instead of showing only the error message.
+local gateway/Auth health probes returned 200. Signup also produced
+`AuthRetryableFetchError` with status 0, confirming the browser could not
+establish an HTTP request to the separate forwarded port. The local Compose
+configuration now points the browser client at the app's port 8080 and proxies
+`/auth/v1` to the healthy local gateway. This same-origin path avoids the
+separate port forwarding and cross-origin request. Local Docker health still
+does not prove the public app port is forwarded; check the Ports panel. The
+account page renders structured Auth errors and the request URL.
 
 The failed full Supabase CLI retries accumulated large images. A targeted
 cleanup of unused Supabase components (Studio, Storage, Realtime, Edge Runtime,
