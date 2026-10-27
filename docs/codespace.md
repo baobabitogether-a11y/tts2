@@ -107,3 +107,24 @@ failure or repeatedly retry the same command. Production artifact runtime
 verification needs a preview command that targets the configured Cloudflare
 output; until then, report build validation and dev-server HTTP validation
 separately.
+
+## Browser end-to-end tests
+
+Run the Playwright browser suite in the pinned official browser container:
+
+```sh
+./docker/manage.sh e2e
+```
+
+The Playwright container starts the Vite app and browser in the same container,
+so this test does not depend on Docker bridge connectivity to another app
+container or the host. Docker Compose build contexts and bind mounts are
+resolved relative to the configured project directory in this setup; with
+`--project-directory` at the repository root, use `context: .`,
+`dockerfile: docker/Dockerfile`, and an explicit repository-root-relative
+artifact path. When the test process runs as the Playwright image's non-root
+user, ensure `/workspace/node_modules/.vite` is writable; `npm ci` creates the
+directory as root, and Vite's optimizer otherwise fails to write its cache.
+The Docker runner must build the image before `compose run` so Dockerfile
+permission fixes and test-source changes are not silently tested with a stale
+image.

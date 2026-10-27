@@ -84,3 +84,20 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+### Browser end-to-end tests
+
+The Playwright suite visits every HTML page and fails on browser console errors
+or uncaught page exceptions. It also checks the public status/history/OpenAPI
+endpoints and the expected Supabase-unavailable responses. Provider calls are
+mocked; these checks do not require provider credentials or a Supabase stack.
+
+Run the pinned Playwright browser environment in Docker:
+
+```sh
+./docker/manage.sh e2e
+```
+
+Test results and the HTML report are written under `docker/artifacts/`. To run
+the suite directly, install Playwright's Chromium browser with
+`npx playwright install chromium`, then use `npm run test:e2e`.

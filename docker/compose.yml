@@ -1,0 +1,19 @@
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        DOCKER_UID: ${DOCKER_UID:-1000}
+        DOCKER_GID: ${DOCKER_GID:-1000}
+    init: true
+    working_dir: /workspace
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    environment:
+      CI: "true"
+      NODE_ENV: test
+      PLAYWRIGHT_BASE_URL: ${PLAYWRIGHT_BASE_URL:-}
+      PLAYWRIGHT_OUTPUT_DIR: /workspace/docker/artifacts/test-results
+      PLAYWRIGHT_HTML_OUTPUT_DIR: /workspace/docker/artifacts/playwright-report
+    volumes:
+      - ./docker/artifacts:/workspace/docker/artifacts

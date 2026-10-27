@@ -18,6 +18,7 @@ without silently rewriting prior prompt history. Do not record secrets.
 | Implement roadmap work in reasonable priority order.                         | In progress | Added Deepgram Aura as a provider with language-based models, speed/output options, Auto routing, environment/shared/personal key support, account management, OpenAPI documentation, and migration `0005`. `37` tests, build, and Drizzle migration checks pass. Real audio still needs a Deepgram key; full Supabase remains blocked by Codespaces Docker networking. |
 | Run the project using local Docker Supabase.                                 | Blocked     | CLI startup times out in the temporary Realtime migrator because Docker bridge peer TCP is unavailable in this Codespace. Regular, database-only, experimental, and host-network startup attempts did not work; published host-port Postgres connectivity works. See [codespace.md](./codespace.md).                                                                    |
 | Publish the completed commits to GitHub/Lovable.                             | Blocked     | `git push` failed because Git could not obtain credentials; `gh auth status` reports no authenticated GitHub host. Commits since the last push remain local. Authenticate and run `git push` to resume.                                                                                                                                                                 |
+| Verify all HTML pages and browser runtime errors with Docker-backed E2E.     | Done        | `./docker/manage.sh e2e` passed all 10 checks in the Playwright container: each HTML route plus 404, navigation, browser console/page errors and same-origin failed responses, status/history/OpenAPI endpoints, CORS preflight, and unauthenticated/Supabase-unavailable API responses. No provider credentials or Supabase stack required.                            |
 
 ## Raw prompt history
 
@@ -179,3 +180,14 @@ deepgram
 ```
 
 **Status: Implemented and locally verified.** Added the Deepgram Aura TTS adapter using its documented REST endpoint and `Token` authorization, language-matched Aura-2 defaults for English, Spanish, German, Dutch, French, Italian, and Japanese, explicit model override, supported speed and output query options, and response MIME propagation. Added Deepgram to server environment keys, shared/personal key storage and management, Auto routing, playground choices, account UI, request validation, and all relevant OpenAPI schemas. Migration `0005` extends provider constraints and shared Auto reservation; it was executed against disposable PostgreSQL, including an Auto reservation check. `37` tests, production build, Drizzle checks, served `/docs` and OpenAPI smoke tests, and Redocly validation pass. Redocly retains two advisory warnings (undeclared license and no 4xx response for the public spec endpoint). The Deepgram HTTP request is mocked in tests; real synthesis requires a Deepgram API key. Full local Supabase remains blocked by Docker bridge networking.
+
+### 17. Browser E2E and Docker setup
+
+```text
+use e2e to ensure no errors occure on any page.
+
+use docker to get e2e setup:
+https://github.com/mostuf25564/subtitle-sync/tree/main/docker
+```
+
+**Status: Done.** Added a pinned Playwright Docker runner, browser tests for all five HTML routes and the 404 page, navigation checks, and assertions against console errors, uncaught page exceptions, and failing same-origin requests. Added API smoke tests for health/history/OpenAPI, TTS CORS preflight, and expected unauthorized or Supabase-unavailable responses. `./docker/manage.sh e2e` passed all 10 tests. Tests mock optional OpenRouter model discovery and need no provider credentials or Supabase. Fixed Docker build-context/artifact paths, rebuilt the image on each run, and made Vite's optimizer cache writable for the non-root test user; see [codespace.md](./codespace.md).

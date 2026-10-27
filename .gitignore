@@ -17,6 +17,7 @@ supabase/.temp/
 .tanstack/**
 .nitro
 *.local
+/docker/artifacts/
 
 # Wrangler / Cloudflare
 .wrangler/
