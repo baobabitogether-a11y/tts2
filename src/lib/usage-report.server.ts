@@ -58,7 +58,7 @@ export async function getUsageReport(request: Request) {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.rpc("provider_usage_report", {
       window_hours: windowHours,
-      report_user_id: userId,
+      ...(userId ? { report_user_id: userId } : {}),
     });
     if (error) throw error;
     return Response.json(data, { headers: { ...CORS, "Cache-Control": "no-store" } });
