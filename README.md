@@ -5,10 +5,11 @@ create a fullstack app. on the frontend be minimalistic and expose an open-api i
 Enable CORS on all backend endpoints (handling OPTIONS preflight, Access-Control-Allow-Origin: *, headers, and methods so external clients can call it).
 
 on the backend create an endpoint to fetch audio based on:
+
 - text
 - lang
 - target lang (utilize translation if target lang is specified)
-- service provider name (`auto`, Google, Lovable, OpenRouter, Gemini, OpenAI, or ElevenLabs)
+- service provider name (`auto`, Google, Lovable, OpenRouter, Gemini, OpenAI, ElevenLabs, or Deepgram Aura)
 - optional provider API key
 
 For keyed providers, keys can be supplied in the request, stored in the encrypted provider-key pool, or configured through environment variables. Auto randomly selects a configured key that is not currently marked blocked/quarantined, and tries another key/provider after authentication, quota, or availability failures. Exact credit balances are provider-specific and are not polled by Auto.
@@ -26,8 +27,17 @@ Environment variables accept one key or a comma/whitespace-separated key list:
 - `GEMINI_API_KEY` / `GEMINI_API_KEYS`
 - `OPENAI_API_KEY` / `OPENAI_API_KEYS`
 - `ELEVENLABS_API_KEY` / `ELEVENLABS_API_KEYS`
+- `DEEPGRAM_API_KEY` / `DEEPGRAM_API_KEYS`
 
 Saved keys require `OPENROUTER_KEY_ENCRYPTION_SECRET`. Protect key management and the JSON usage endpoint with `PROVIDER_MANAGEMENT_TOKEN` (or the legacy `OPENROUTER_MANAGEMENT_TOKEN`). The report endpoint is `GET /api/public/usage?hours=24`; it returns JSON grouped by the provider that actually served each request, with character counts, estimated and provider-reported tokens, audio bytes, cache hits, and latency.
+
+Deepgram uses an Aura-2 voice matching English, Spanish, German, Dutch, French, Italian, or Japanese when possible; other languages default to English. Supply an Aura model ID with `options.model` or `voice` to override the default. Deepgram supports the shared `speed` setting and output options such as `encoding`, `container`, `sample_rate`, `bit_rate`, and `mip_opt_out`.
+
+### Run without Supabase
+
+Public synthesis can run without Supabase. Google TTS works without credentials; other providers and `auto` routing use server-configured provider keys from the environment variables above. In this mode keys are not saved or health-tracked, and `auto` retries configured keys for the current request only.
+
+Account sign-in, personal API tokens, saved provider keys, and persistent usage reports require Supabase. Recent request history remains available at `/history` for the current server instance only.
 
 ## Using the API from an external agent
 
@@ -49,6 +59,8 @@ Content-Type: application/json
 
 {"text":"Ciao, come stai?","lang":"it","provider":"auto"}
 ```
+
+To use your own provider key for just one request, select the matching provider and send `api_key` in the POST JSON body, or send it in the `X-Provider-API-Key` header. This per-request key takes precedence over saved and server-configured keys and is not stored. Do not combine a one-request key with `provider: "auto"`; Auto cannot determine which provider the key belongs to. Avoid putting keys in GET query strings because URLs may be logged.
 
 This project was built with [Lovable](https://lovable.dev).
 
@@ -72,3 +84,47 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+### Browser end-to-end tests
+
+The Playwright suite visits every HTML page and fails on browser console errors
+or uncaught page exceptions. It also checks the public status/history/OpenAPI
+endpoints and the expected Supabase-unavailable responses. Provider calls are
+mocked; these checks do not require provider credentials or a Supabase stack.
+
+Run the pinned Playwright browser environment in Docker:
+
+```sh
+./docker/manage.sh e2e
+```
+
+Test results and the HTML report are written under `docker/artifacts/`. To run
+the suite directly, install Playwright's Chromium browser with
+`npx playwright install chromium`, then use `npm run test:e2e`.
+
+### Local Supabase in Docker
+
+Start the app with a local Postgres, PostgREST, and Auth stack:
+
+```sh
+./start.sh
+```
+
+The script generates gitignored local credentials in `.env.local-supabase`,
+starts the Compose services, applies the Drizzle migrations, and verifies
+PostgreSQL port `5432`, the Supabase API gateway on `54321`, the app on `8080`,
+and the app's same-origin `/auth/v1` proxy. It exits with an error if a required
+service is not healthy. This Codespace blocks TCP between Docker bridge
+containers, so these services use host networking and bind to loopback instead.
+This intentionally minimal stack does not include Supabase Studio, Storage,
+Realtime, or Edge Functions. Use `./docker/manage.sh local-down` to stop it;
+the database volume is retained. To remove the database and all local data,
+run `./docker/manage.sh local-down --volumes`.
+
+In Codespaces, `local-up` verifies health on local ports `8080` and `54321`, but
+cannot verify the Codespaces proxy or whether ports are forwarded. Use the
+VS Code Ports panel and open its forwarded URL for port `8080`. Browser-side
+Supabase Auth uses the app's same-origin `/auth/v1` proxy, so port `54321`
+does not need external forwarding. Do not treat the URL generated in
+`.env.local-supabase` as proof that the external app URL is live. The
+server-side app and database continue to use loopback URLs.

@@ -215,52 +215,16 @@ export type Database = {
         }
         Relationships: []
       }
-      user_provider_api_keys: {
-        Row: {
-          ciphertext: string
-          code: number | null
-          created_at: string
-          failures: number
-          fingerprint: string
-          id: string
-          in_flight: number
-          last_used: string | null
-          quarantined_until: string | null
-          rotation_order: number
-          service: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          ciphertext: string
-          code?: number | null
-          created_at?: string
-          failures?: number
-          fingerprint: string
-          id?: string
-          in_flight?: number
-          last_used?: string | null
-          quarantined_until?: string | null
-          rotation_order?: number
-          service: string
-          status?: string
-          user_id: string
-        }
-        Update: {
-          ciphertext?: string
-          code?: number | null
-          created_at?: string
-          failures?: number
-          fingerprint?: string
-          id?: string
-          in_flight?: number
-          last_used?: string | null
-          quarantined_until?: string | null
-          rotation_order?: number
-          service?: string
-          status?: string
-          user_id?: string
-        }
+      user_provider_key_events: {
+        Row: { action: string; id: number; key_id: string; occurred_at: string; response_code: number; user_id: string }
+        Insert: { action: string; id?: number; key_id: string; occurred_at?: string; response_code: number; user_id: string }
+        Update: { action?: string; id?: number; key_id?: string; occurred_at?: string; response_code?: number; user_id?: string }
+        Relationships: []
+      }
+      user_api_tokens: {
+        Row: { created_at: string; id: string; label: string; last_used: string | null; revoked_at: string | null; token_hash: string; user_id: string }
+        Insert: { created_at?: string; id?: string; label?: string; last_used?: string | null; revoked_at?: string | null; token_hash: string; user_id: string }
+        Update: { created_at?: string; id?: string; label?: string; last_used?: string | null; revoked_at?: string | null; token_hash?: string; user_id?: string }
         Relationships: []
       }
     }
@@ -406,6 +370,13 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reserve_provider_key: { Args: { service_name: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["provider_api_keys"]["Row"][] }
+      reserve_any_provider_key: { Args: { excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["provider_api_keys"]["Row"][] }
+      mark_provider_key: { Args: { key_id: string; response_code: number }; Returns: undefined }
+      reserve_user_provider_key: { Args: { owner_id: string; service_name: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["user_provider_api_keys"]["Row"][] }
+      reserve_any_user_provider_key: { Args: { owner_id: string; excluded_keys?: string[] }; Returns: Database["public"]["Tables"]["user_provider_api_keys"]["Row"][] }
+      mark_user_provider_key: { Args: { owner_id: string; key_id: string; response_code: number; action_name?: string }; Returns: undefined }
+      provider_usage_report: { Args: { window_hours?: number; report_user_id?: string | null }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

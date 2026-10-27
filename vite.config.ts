@@ -8,6 +8,16 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { loadEnv, type ConfigEnv } from "vite";
 
 const config = defineConfig({
+  vite: {
+    server: {
+      proxy: {
+        "/auth/v1": {
+          target: "http://127.0.0.1:54321",
+          changeOrigin: true,
+        },
+      },
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

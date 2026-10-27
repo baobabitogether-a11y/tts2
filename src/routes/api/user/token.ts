@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createUserApiToken, listUserApiTokens, requireSupabaseUser, revokeUserApiToken, UserAuthError } from "@/lib/user-account.server";
+import { hasSupabaseAdminConfig } from "@/lib/openrouter-pool.server";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,12 @@ const CORS = {
 };
 
 async function handle(request: Request) {
+  if (!hasSupabaseAdminConfig()) {
+    return Response.json(
+      { error: "Personal API tokens require Supabase." },
+      { status: 503, headers: CORS },
+    );
+  }
   try {
     const userId = await requireSupabaseUser(request);
     if (request.method === "GET") {

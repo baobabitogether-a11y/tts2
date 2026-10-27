@@ -11,11 +11,14 @@ node_modules
 dist
 dist-ssr
 .env
+.env.local-supabase
 .output
+supabase/.temp/
 .vinxi
 .tanstack/**
 .nitro
 *.local
+/docker/artifacts/
 
 # Wrangler / Cloudflare
 .wrangler/

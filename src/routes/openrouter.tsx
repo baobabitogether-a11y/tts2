@@ -17,7 +17,13 @@ export const Route = createFileRoute("/openrouter")({
 });
 
 type K = { id: string; service: string; key: string; source: string; status: string; failures?: number; lastError?: string; quarantinedUntil?: number; lastUsed?: number };
-type KeyService = "openrouter" | "lovable" | "gemini" | "openai" | "elevenlabs" | "deepgram" | "azure" | "googlecloud";
+type KeyService =
+  | "openrouter"
+  | "lovable"
+  | "gemini"
+  | "openai"
+  | "elevenlabs"
+  | "deepgram";
 const services: Array<{ id: KeyService; label: string }> = [
   { id: "openrouter", label: "OpenRouter" },
   { id: "lovable", label: "Lovable AI" },
@@ -25,8 +31,6 @@ const services: Array<{ id: KeyService; label: string }> = [
   { id: "openai", label: "OpenAI" },
   { id: "elevenlabs", label: "ElevenLabs" },
   { id: "deepgram", label: "Deepgram" },
-  { id: "azure", label: "Azure Speech (region:key)" },
-  { id: "googlecloud", label: "Google Cloud TTS" },
 ];
 const API = "/api/public/openrouter-keys";
 

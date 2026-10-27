@@ -1,0 +1,615 @@
+import { expect, test } from "@playwright/test";
+
+const pages = [
+  { path: "/", heading: "Turn your words into voice." },
+  { path: "/account", heading: "Your Speak API account" },
+  { path: "/docs", heading: "Speak API API reference" },
+  { path: "/openrouter", heading: "Provider keys" },
+  { path: "/reports", heading: "Usage reports" },
+  { path: "/tokens", heading: "Tokens and key activity" },
+  { path: "/page-that-does-not-exist", heading: "Page not found", notFound: true },
+] as const satisfies Array<{ path: string; heading: string; notFound?: boolean }>;
+
+function trackBrowserErrors(page: import("@playwright/test").Page, allowNotFound = false) {
+  const errors: string[] = [];
+  const origin = new URL(process.env["PLAYWRIGHT_BASE_URL"] || "http://127.0.0.1:4173").origin;
+  page.on("pageerror", (error) => errors.push(`Uncaught exception: ${error.message}`));
+  page.on("console", (message) => {
+    const expectedNotFoundDocument =
+      allowNotFound &&
+      message.type() === "error" &&
+      /^Failed to load resource: the server responded with a status of (?:a )?404(?: \([^)]*\))?$/.test(
+        message.text(),
+      );
+    if (message.type() === "error" && !expectedNotFoundDocument) {
+      errors.push(`Console error: ${message.text()}`);
+    }
+  });
+  page.on("requestfailed", (request) => {
+    if (new URL(request.url()).origin === origin) {
+      errors.push(
+        `Failed request: ${request.method()} ${request.url()} (${request.failure()?.errorText})`,
+      );
+    }
+  });
+  page.on("response", (response) => {
+    const expectedNotFound =
+      allowNotFound &&
+      response.status() === 404 &&
+      response.request().isNavigationRequest() &&
+      response.request().resourceType() === "document";
+    if (
+      !expectedNotFound &&
+      new URL(response.url()).origin === origin &&
+      response.status() >= 400
+    ) {
+      errors.push(`HTTP ${response.status()}: ${response.url()}`);
+    }
+  });
+  return errors;
+}
+
+for (const { path, heading, notFound } of pages) {
+  test(`${path} renders without browser errors`, async ({ page }) => {
+    const errors = trackBrowserErrors(page, notFound);
+    await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+      route.fulfill({ json: { data: { models: [] } } }),
+    );
+
+    const response = await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    if (notFound) {
+      expect(response?.status(), `${path} document response`).toBe(404);
+    } else {
+      expect(response?.status(), `${path} document response`).toBeLessThan(400);
+    }
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    if (notFound) {
+      await expect(page.getByRole("heading", { name: "404", exact: true })).toBeVisible();
+    } else {
+      await expect(page.getByRole("main")).toBeVisible();
+    }
+    if (path === "/account") {
+      if (process.env["PLAYWRIGHT_SUPABASE_CONFIGURED"] === "true") {
+        await expect(page.getByLabel("Email")).toBeVisible();
+        await expect(page.getByLabel("Password")).toBeVisible();
+      } else {
+        await expect(page.getByRole("alert")).toContainText("Account features require Supabase");
+      }
+    }
+    if (path === "/") {
+      await expect(page.getByRole("option", { name: "Deepgram Aura" })).toBeAttached();
+    }
+    if (path === "/docs") {
+      await expect(page.getByText("Synthesize speech (JSON body)", { exact: true })).toBeAttached();
+    }
+    if (path === "/openrouter") {
+      await expect(page.getByRole("option", { name: "Deepgram" })).toBeAttached();
+    }
+
+    expect(errors, `${path} browser errors`).toEqual([]);
+  });
+}
+
+test("main navigation links reach the API reference, account, and token activity", async ({
+  page,
+}) => {
+  const errors = trackBrowserErrors(page);
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+
+  await page.goto("/");
+  await page.getByRole("link", { name: "API reference" }).click();
+  await expect(page).toHaveURL(/\/docs$/);
+  await expect(page.getByRole("heading", { name: "Speak API API reference" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to speech" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Account" })
+    .click();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(page.getByRole("heading", { name: "Your Speak API account" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Tokens" })
+    .click();
+  await expect(page).toHaveURL(/\/tokens$/);
+  await expect(page.getByRole("heading", { name: "Tokens and key activity" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to speech" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.waitForLoadState("networkidle");
+
+  expect(errors, "navigation browser errors").toEqual([]);
+});
+
+test("mobile menu, theme choices, and page layouts work on a narrow viewport", async ({ page }) => {
+  const errors = trackBrowserErrors(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const menuButton = page.getByRole("button", { name: "Open navigation menu" });
+  await expect(menuButton).toBeVisible();
+  await menuButton.click();
+  const mobileNavigation = page.getByRole("navigation", { name: "Mobile navigation" });
+  const tokenLink = mobileNavigation.getByRole("link", { name: "Tokens" });
+  await expect(tokenLink).toBeVisible();
+  await tokenLink.click();
+  await expect(page).toHaveURL(/\/tokens$/);
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeHidden();
+
+  for (const path of ["/", "/docs", "/account", "/reports", "/tokens"]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.content, `${path} should fit in the mobile viewport`).toBeLessThanOrEqual(
+      dimensions.viewport,
+    );
+  }
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const themeButton = page.locator("header").getByRole("button", { name: /Theme:/ });
+  await themeButton.click();
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("light");
+  await themeButton.click();
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("dark");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("speak-api-theme")))
+    .toBe("dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  expect(errors, "mobile browser errors").toEqual([]);
+});
+
+test("account shows full Auth API errors to the user", async ({ page }) => {
+  let signupRequestUrl = "";
+  await page.route("**/auth/v1/signup", (route) =>
+    (async () => {
+      signupRequestUrl = route.request().url();
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ code: "gateway_not_found", message: "Auth route not found" }),
+      });
+    })(),
+  );
+
+  await page.goto("/account");
+  await page.getByLabel("Email").fill("signup-error@example.test");
+  await page.getByLabel("Password").fill("not-a-real-password");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText('"status": 404');
+  await expect(alert).toContainText("gateway_not_found");
+  await expect(alert).toContainText("Auth route not found");
+  await expect(alert).toContainText("/auth/v1/signup");
+  expect(new URL(signupRequestUrl).origin).toBe(
+    new URL(
+      process.env["PLAYWRIGHT_SUPABASE_URL"] ||
+        process.env["PLAYWRIGHT_BASE_URL"] ||
+        "http://127.0.0.1:4173",
+    ).origin,
+  );
+});
+
+test("account tests saved provider keys and colors validation results", async ({ page }) => {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: "test-user-id",
+      aud: "authenticated",
+      role: "authenticated",
+      exp: now + 3600,
+    }),
+  ).toString("base64url");
+  const accessToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.test-signature`;
+  const user = {
+    id: "test-user-id",
+    email: "key-owner@example.test",
+    aud: "authenticated",
+    app_metadata: { provider: "email", providers: ["email"] },
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  };
+  let openRouterTestStatus: "valid" | "invalid" = "valid";
+  let testAuthorization = "";
+  const providerKeys = [
+    { id: "openrouter-row", service: "openrouter", key_suffix: "9xY2" },
+    { id: "lovable-row", service: "lovable", key_suffix: "L0v3" },
+    { id: "gemini-row", service: "gemini", key_suffix: "G3m1" },
+    { id: "openai-row", service: "openai", key_suffix: "0p3n" },
+    { id: "elevenlabs-row", service: "elevenlabs", key_suffix: "3l3v" },
+    { id: "deepgram-row", service: "deepgram", key_suffix: "D33p" },
+  ];
+
+  await page.route("**/auth/v1/signup", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access_token: accessToken,
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        refresh_token: "test-refresh-token",
+        user,
+      }),
+    }),
+  );
+  await page.route("**/api/user/provider-keys", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          services: providerKeys.map(({ service }) => service),
+          keys: providerKeys.map((key) => ({
+            ...key,
+            status: key.service === "lovable" ? "blocked" : "untested",
+            failures: 0,
+            code: null,
+            created_at: new Date().toISOString(),
+            last_used: null,
+            quarantined_until: null,
+          })),
+          history: [
+            {
+              id: 1,
+              key_id: "openrouter-row",
+              occurred_at: new Date().toISOString(),
+              action: "test",
+              response_code: 200,
+            },
+            {
+              id: 2,
+              key_id: "lovable-row",
+              occurred_at: new Date().toISOString(),
+              action: "request",
+              response_code: 503,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    testAuthorization = route.request().headers()["authorization"] ?? "";
+    const body = route.request().postDataJSON() as { test: boolean; id: string };
+    expect(body.test).toBe(true);
+    const key = providerKeys.find((providerKey) => providerKey.id === body.id);
+    expect(key).toBeDefined();
+    if (!key) throw new Error("Requested provider key was not in the account fixture");
+    await route.fulfill(
+      key.service !== "openrouter" || openRouterTestStatus === "valid"
+        ? {
+            json: {
+              test: {
+                valid: true,
+                service: key.service,
+                status: "valid",
+                ...(key.service === "openrouter"
+                  ? { account: { limit: 100, usage: 2 } }
+                  : { message: `${key.service} accepted this API key.` }),
+              },
+            },
+          }
+        : {
+            json: {
+              test: {
+                valid: false,
+                service: key.service,
+                status: "invalid",
+                message: "openrouter rejected this key.",
+              },
+            },
+          },
+    );
+  });
+  await page.route("**/api/user/token", (route) =>
+    route.fulfill({
+      json: {
+        tokens: [
+          {
+            id: "personal-token-row",
+            label: "E2E token",
+            created_at: new Date().toISOString(),
+            last_used: null,
+            revoked_at: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/public/usage?hours=168", (route) =>
+    route.fulfill({
+      json: {
+        window_hours: 168,
+        totals: {
+          requests: 0,
+          successful: 0,
+          failed: 0,
+          input_chars: 0,
+          output_chars: 0,
+          estimated_input_tokens: 0,
+          provider_input_tokens: 0,
+          provider_output_tokens: 0,
+        },
+      },
+    }),
+  );
+
+  await page.goto("/account");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password").fill("not-a-real-password");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText(user.email)).toBeVisible();
+  await expect(page.getByLabel("openrouter key suffix")).toHaveText("••••9xY2");
+  const testButtons = page.getByRole("button", { name: "Test key" });
+  await expect(testButtons).toHaveCount(providerKeys.length);
+  for (const [index, key] of providerKeys.entries()) {
+    await testButtons.nth(index).click();
+    const result = page.getByRole("status").nth(index);
+    await expect(result).toContainText(
+      key.service === "openrouter"
+        ? "valid — limit: 100 · usage: 2"
+        : `valid — ${key.service} accepted this API key.`,
+    );
+    if (key.service === "openrouter") await expect(result).toHaveClass(/text-green-700/);
+  }
+  const openRouterButton = testButtons.first();
+  openRouterTestStatus = "invalid";
+  await openRouterButton.click();
+  const openRouterResult = page.getByRole("status").first();
+  await expect(openRouterResult).toContainText("invalid — openrouter rejected this key.");
+  await expect(openRouterResult).toHaveClass(/text-red-700/);
+  expect(testAuthorization).toBe(`Bearer ${accessToken}`);
+  await page.goto("/tokens");
+  await expect(page.getByRole("heading", { name: "Tokens and key activity" })).toBeVisible();
+  await expect(page.getByText("E2E token")).toBeVisible();
+  await expect(page.getByText("Blocked — test the key or replace it")).toBeVisible();
+  await expect(page.getByText("OpenRouter ••••9xY2")).toBeVisible();
+  await expect(page.getByText("HTTP 503")).toBeVisible();
+});
+
+test("Auto selection remains available after no-key synthesis failure", async ({ page }) => {
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "No provider key is available for Auto routing. Add a key in account settings.",
+      }),
+    }),
+  );
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Provider").selectOption("auto");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("No provider key is available");
+  await expect(
+    page.getByRole("link", { name: "Add a provider key in your account" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Provider")).toHaveValue("auto");
+  await expect(page.getByLabel("Provider").getByRole("option", { name: /Auto/ })).toBeAttached();
+});
+
+test("provider outage errors explain that the key may still be valid", async ({ page }) => {
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error:
+          "Tried 2 OpenAI keys; results: HTTP 503 (2 keys). OpenAI is temporarily unavailable. This does not by itself mean the API key is invalid; test a saved key in Account or verify the server-configured key, then retry later if it is accepted.",
+      }),
+    }),
+  );
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Provider").selectOption("openai");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("Tried 2 OpenAI keys");
+  await expect(page.getByRole("alert")).toContainText(
+    "This does not by itself mean the API key is invalid",
+  );
+  await expect(
+    page.getByRole("link", { name: "Open Account to test your saved key" }),
+  ).toBeVisible();
+});
+
+test("docs API tester sends a personal token only as a bearer header", async ({ page }) => {
+  const token = "spk_test-token-never-render";
+  let authorization = "";
+  let requestUrl = "";
+  await page.route("**/api/public/tts", async (route) => {
+    authorization = route.request().headers()["authorization"] ?? "";
+    requestUrl = route.request().url();
+    await route.fulfill({ status: 200, contentType: "audio/mpeg", body: Buffer.from([1, 2, 3]) });
+  });
+  await page.goto("/docs");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Personal API token").fill(token);
+  await page.getByLabel("Tester text").fill("Test voice");
+  await page.getByRole("button", { name: "Send request" }).click();
+
+  await expect(page.getByRole("status")).toContainText("audio/mpeg");
+  await expect(page.locator("audio")).toBeVisible();
+  expect(authorization).toBe(`Bearer ${token}`);
+  expect(requestUrl).not.toContain(token);
+  await expect(page.locator("body")).not.toContainText(token);
+});
+
+test("generated audio is saved and playable in browser history", async ({ page }) => {
+  await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
+    route.fulfill({ json: { data: { models: [] } } }),
+  );
+  await page.route("**/api/public/tts", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "audio/mpeg",
+      headers: {
+        "X-Provider": "openai",
+        "X-Response-Time-Ms": "143",
+        "X-Provider-Input-Tokens": "8",
+        "X-Provider-Output-Tokens": "12",
+        "X-Spoken-Lang": "en",
+        "X-Cache": "MISS",
+      },
+      body: Buffer.from([1, 2, 3]),
+    }),
+  );
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Generate audio" }).click();
+  await expect(page.locator("audio")).toBeVisible();
+
+  await page.goto("/reports");
+  await expect(page.getByRole("heading", { name: "Generated audio history" })).toBeVisible();
+  const historyPlayer = page.locator("audio").first();
+  await expect(historyPlayer).toBeVisible();
+  await expect(page.getByRole("cell", { name: "openai", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "143 ms" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Not reported" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "8 / 12" })).toBeVisible();
+
+  const blobUrl = await historyPlayer.getAttribute("src");
+  expect(blobUrl).toMatch(/^blob:/);
+  await expect
+    .poll(() => page.evaluate(async (url) => (url ? (await fetch(url)).status : 0), blobUrl))
+    .toBe(200);
+
+  await page.reload();
+  await expect(page.locator("audio").first()).toBeVisible();
+});
+
+test("usage reports load from the report API endpoint", async ({ page }) => {
+  let reportRequest: URL | undefined;
+  await page.route("**/api/report/usage?**", async (route) => {
+    reportRequest = new URL(route.request().url());
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-management-token");
+    await route.fulfill({
+      json: {
+        window_hours: 24,
+        totals: {
+          requests: 3,
+          successful: 2,
+          failed: 1,
+          cached: 0,
+          audio_bytes: 4096,
+          input_chars: 20,
+          output_chars: 20,
+          estimated_input_tokens: 5,
+          provider_input_tokens: 0,
+          provider_output_tokens: 0,
+          avg_duration_ms: 120,
+        },
+        services: [],
+      },
+    });
+  });
+
+  await page.goto("/reports");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Management token").fill("test-management-token");
+  await page.getByRole("button", { name: "Load report" }).click();
+  await expect(page.getByRole("heading", { name: "Last 24 hours" })).toBeVisible();
+  await expect(page.getByText("3", { exact: true })).toBeVisible();
+  expect(reportRequest?.searchParams.get("hours")).toBe("24");
+});
+
+test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({
+  request,
+}) => {
+  const health = await request.get("/health");
+  expect(health.status(), "/health").toBe(200);
+  await expect(health.json()).resolves.toMatchObject({ status: "ok" });
+
+  const history = await request.get("/history");
+  expect(history.status(), "/history").toBe(200);
+  const historyBody = await history.json();
+  expect(historyBody.count).toEqual(expect.any(Number));
+  expect(Array.isArray(historyBody.requests)).toBe(true);
+
+  const openapi = await request.get("/api/public/openapi.json");
+  expect(openapi.status(), "/api/public/openapi.json").toBe(200);
+  const openapiDocument = await openapi.json();
+  expect(openapiDocument).toMatchObject({
+    openapi: "3.1.0",
+    paths: {
+      "/api/report/usage": {
+        get: {
+          operationId: "getProviderUsageReport",
+          responses: {
+            "200": {
+              content: {
+                "application/json": {
+                  schema: {
+                    properties: {
+                      totals: { type: "object" },
+                      services: { type: "array" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+});
+
+test("account APIs respond appropriately for the Supabase configuration", async ({ request }) => {
+  const configured = process.env["PLAYWRIGHT_SUPABASE_SERVER_CONFIGURED"] === "true";
+  for (const [path, unavailableMessage] of [
+    ["/api/user/provider-keys", "Account provider keys require Supabase."],
+    ["/api/user/token", "Personal API tokens require Supabase."],
+  ] as const) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(configured ? 401 : 503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: configured ? "Authentication required" : unavailableMessage,
+    });
+  }
+});
+
+test("unauthenticated public API routes return expected client errors", async ({ request }) => {
+  const openKeys = await request.get("/api/public/openrouter-keys?service=deepgram");
+  expect(openKeys.status(), "/api/public/openrouter-keys").toBe(401);
+
+  const usage = await request.get("/api/public/usage");
+  expect(usage.status(), "/api/public/usage").toBe(401);
+
+  const report = await request.get("/api/report/usage");
+  expect(report.status(), "/api/report/usage").toBe(401);
+
+  const reportPreflight = await request.fetch("/api/report/usage", { method: "OPTIONS" });
+  expect(reportPreflight.status(), "/api/report/usage preflight").toBe(204);
+
+  const preflight = await request.fetch("/api/public/tts", { method: "OPTIONS" });
+  expect(preflight.status(), "TTS preflight").toBe(204);
+});

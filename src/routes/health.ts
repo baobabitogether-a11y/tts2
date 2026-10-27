@@ -20,16 +20,22 @@ export const Route = createFileRoute("/health")({
       GET: async () => {
         const { startedAt } = await import('@/lib/tts.server');
         const { cacheInfo, history } = await import('@/lib/monitor.server');
-        const { poolRows, publicKey, decryptKey } = await import('@/lib/openrouter-pool.server');
+        const { poolRows, publicKey, decryptKey, environmentKeys, hasSupabaseAdminConfig } =
+          await import("@/lib/openrouter-pool.server");
         const up = Math.floor((Date.now() - startedAt) / 1000);
-        const keys = await poolRows('openrouter');
-        const openrouter = await Promise.all(
-          keys.map(async (k, i) => ({
-            position: i,
-            ...publicKey(k),
-            credits: await credits(await decryptKey(k)),
-          })),
-        );
+        const openrouter = hasSupabaseAdminConfig()
+          ? await Promise.all(
+              (await poolRows("openrouter")).map(async (k, i) => ({
+                position: i,
+                ...publicKey(k),
+                credits: await credits(await decryptKey(k)),
+              })),
+            )
+          : environmentKeys("openrouter").map((_, position) => ({
+              position,
+              status: "configured",
+              source: "env",
+            }));
         return Response.json(
           {
             status: "ok",
@@ -40,6 +46,7 @@ export const Route = createFileRoute("/health")({
             openrouter_keys: openrouter,
             cache: cacheInfo(),
             requests_recorded: history.length,
+            supabase_configured: hasSupabaseAdminConfig(),
           },
           { headers: CORS },
         );
