@@ -57,14 +57,24 @@ describe("public OpenAPI specification", () => {
     const usage = openApiSpec.paths["/api/report/usage"].get;
     const report = usage.responses["200"].content["application/json"].schema;
 
+    expect(usage.operationId).toBe("getProviderUsageReport");
+    expect(usage.summary).toBe("Get provider usage report");
+    expect(usage.description).toContain("Playable audio history");
     expect(usage.security).toEqual([
       { personalApiTokenAuth: [] },
       { supabaseSessionAuth: [] },
       { bearerAuth: [] },
     ]);
+    expect(usage.parameters).toContainEqual({
+      name: "hours",
+      in: "query",
+      required: false,
+      schema: { type: "integer", minimum: 1, maximum: 720, default: 24 },
+    });
     expect(report.properties.totals.properties.input_chars).toBeDefined();
     expect(report.properties.totals.properties.provider_output_tokens).toBeDefined();
     expect(report.properties.services.items.properties.service).toBeDefined();
+    expect(usage.responses["200"].content["application/json"].schema).toBe(report);
   });
 
   it("documents every API route, including the canonical document endpoint", () => {

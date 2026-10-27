@@ -556,7 +556,31 @@ test("server-backed status, history, and OpenAPI endpoints respond successfully"
 
   const openapi = await request.get("/api/public/openapi.json");
   expect(openapi.status(), "/api/public/openapi.json").toBe(200);
-  await expect(openapi.json()).resolves.toMatchObject({ openapi: "3.1.0" });
+  const openapiDocument = await openapi.json();
+  expect(openapiDocument).toMatchObject({
+    openapi: "3.1.0",
+    paths: {
+      "/api/report/usage": {
+        get: {
+          operationId: "getProviderUsageReport",
+          responses: {
+            "200": {
+              content: {
+                "application/json": {
+                  schema: {
+                    properties: {
+                      totals: { type: "object" },
+                      services: { type: "array" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 });
 
 test("account APIs respond appropriately for the Supabase configuration", async ({ request }) => {
