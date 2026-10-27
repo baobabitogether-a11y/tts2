@@ -74,7 +74,7 @@ loopback, while the Supabase CLI cannot use host networking because it requires
 network-scoped aliases. Start this project-specific stack with:
 
 ```sh
-./docker/manage.sh local-up
+./start.sh
 ```
 
 It runs the Supabase PostgreSQL image, PostgREST, GoTrue Auth, an Nginx API
@@ -87,9 +87,13 @@ All 10 Playwright browser E2E tests passed against the configured stack;
 has Docker-native endpoint healthchecks for Postgres, PostgREST, GoTrue,
 gateway, and the app; `local-up` waits for them and independently probes app
 and REST/Auth URLs before reporting readiness. The stack is deliberately
-minimal: it does not
-include Supabase Studio, Storage, Realtime, or Edge Functions and is not the
-full `supabase start` stack.
+minimal: it does not include Supabase Studio, Storage, Realtime, or Edge Functions and is
+not the full `supabase start` stack. The root `start.sh` script calls this
+startup flow and then explicitly verifies PostgreSQL TCP, API gateway health,
+app health, same-origin Auth proxy health, and Docker health status for all
+five services. It reports failure rather than a ready message if any check
+fails. It cannot verify Codespaces browser forwarding; port `8080` must still
+be forwarded in the VS Code Ports panel.
 
 The PostgREST upstream image is a minimal shell-less image. Do not copy the
 BusyBox executable into it and assume it will run: the BusyBox binary from the

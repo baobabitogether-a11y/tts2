@@ -278,3 +278,11 @@ show full error to client!
 ```
 
 **Status: Implemented and verified.** The Codespaces tunnel returns an empty 404 for the public 54321 URL while local Auth is healthy, and the browser's status 0 confirms it received no HTTP response. Updated the local Codespaces client URL to use the app origin on port 8080 and configured Vite to proxy `/auth/v1` to the local gateway. Local `/auth/v1/health` through the app proxy returns 200, and all 11 browser E2E tests pass with an assertion that Auth requests use the configured app origin. Browser signup no longer requires separately forwarding port 54321 or issuing a cross-origin request. The public app URL redirects to Codespaces tunnel authentication from this shell (HTTP 302/401), so user browser access still requires a valid VS Code/Codespaces session and port 8080 forwarding.
+
+### 28. Add a verified application startup script
+
+```text
+create a script ensuring app is up and running with use of the relevant ports
+```
+
+**Status: Implemented.** Added the root `./start.sh` entry point to start the Docker Compose app/database stack, apply migrations, then verify PostgreSQL TCP `5432`, API gateway `54321`, app `8080`, the same-origin Auth proxy, and all five Docker health statuses. In Codespaces it instructs the user to forward port `8080` in the Ports panel; external forwarding cannot be determined from the local service health checks.

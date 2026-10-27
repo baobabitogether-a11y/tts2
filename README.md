@@ -107,12 +107,14 @@ the suite directly, install Playwright's Chromium browser with
 Start the app with a local Postgres, PostgREST, and Auth stack:
 
 ```sh
-./docker/manage.sh local-up
+./start.sh
 ```
 
-The command generates gitignored local credentials in `.env.local-supabase`,
-starts the Compose services, applies the Drizzle migrations, and serves the app
-at `http://127.0.0.1:8080`. This Codespace blocks TCP between Docker bridge
+The script generates gitignored local credentials in `.env.local-supabase`,
+starts the Compose services, applies the Drizzle migrations, and verifies
+PostgreSQL port `5432`, the Supabase API gateway on `54321`, the app on `8080`,
+and the app's same-origin `/auth/v1` proxy. It exits with an error if a required
+service is not healthy. This Codespace blocks TCP between Docker bridge
 containers, so these services use host networking and bind to loopback instead.
 This intentionally minimal stack does not include Supabase Studio, Storage,
 Realtime, or Edge Functions. Use `./docker/manage.sh local-down` to stop it;
