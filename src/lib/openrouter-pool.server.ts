@@ -267,14 +267,32 @@ export async function reserveAnyUserKey(userId: string, excluded: string[] = [])
   if (error) throw new Error("Could not reserve one of your provider keys");
   return data?.[0] || null;
 }
-export async function markUserKey(userId: string, id: string, code: number) {
+export async function markUserKey(
+  userId: string,
+  id: string,
+  code: number,
+  action: "request" | "test" = "request",
+) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin.rpc("mark_user_provider_key", {
     owner_id: userId,
     key_id: id,
     response_code: code,
+    action_name: action,
   });
   if (error) throw new Error("Could not update your provider key status");
+}
+
+export async function listUserProviderKeyEvents(userId: string, limit = 200) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("user_provider_key_events")
+    .select("id, key_id, occurred_at, action, response_code")
+    .eq("user_id", userId)
+    .order("occurred_at", { ascending: false })
+    .limit(Math.max(1, Math.min(500, limit)));
+  if (error) throw new Error("Could not load your provider key history");
+  return data || [];
 }
 
 export async function testUserProviderKey(userId: string, id: string) {
@@ -325,7 +343,7 @@ export async function testUserProviderKey(userId: string, id: string) {
       headers: endpoint.headers(key),
     });
   } catch {
-    await markUserKey(userId, id, 599);
+    await markUserKey(userId, id, 599, "test");
     return {
       valid: false,
       status: "unreachable",
@@ -336,7 +354,7 @@ export async function testUserProviderKey(userId: string, id: string) {
 
   if (!response.ok) {
     await response.body?.cancel();
-    await markUserKey(userId, id, response.status);
+    await markUserKey(userId, id, response.status, "test");
     const invalid = response.status === 401 || response.status === 403;
     return {
       valid: false,
@@ -374,7 +392,7 @@ export async function testUserProviderKey(userId: string, id: string) {
   } else {
     await response.body?.cancel();
   }
-  await markUserKey(userId, id, response.status);
+  await markUserKey(userId, id, response.status, "test");
   return {
     valid: true,
     status,

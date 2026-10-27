@@ -4,13 +4,33 @@ import { webcrypto } from "node:crypto";
 const durable = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   userRows: [] as Array<Record<string, unknown>>,
+  userEvents: [] as Array<Record<string, unknown>>,
   markedUserRows: [] as Array<Record<string, unknown>>,
 }));
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
     from: (table: string) => {
-      const rows = table === "user_provider_api_keys" ? durable.userRows : durable.rows;
+      const rows =
+        table === "user_provider_api_keys"
+          ? durable.userRows
+          : table === "user_provider_key_events"
+            ? durable.userEvents
+            : durable.rows;
       const filters: Record<string, unknown> = {};
+      let selectedColumns = "*";
+      const selectedRows = () =>
+        rows
+          .filter((row) => Object.entries(filters).every(([key, value]) => row[key] === value))
+          .map((row) =>
+            selectedColumns === "*"
+              ? row
+              : Object.fromEntries(
+                  selectedColumns.split(",").map((column) => {
+                    const name = column.trim();
+                    return [name, row[name]];
+                  }),
+                ),
+          );
       const query = {
         insert: async (row: Record<string, unknown>) => {
           rows.push({
@@ -38,15 +58,23 @@ vi.mock("@/integrations/supabase/client.server", () => ({
           );
           return { error: null };
         },
-        select: () => query,
+        select: (columns = "*") => {
+          selectedColumns = columns;
+          return query;
+        },
         eq: (column: string, value: unknown) => {
           filters[column] = value;
           return query;
         },
-        order: async () => ({
-          data: rows.filter((row) =>
-            Object.entries(filters).every(([key, value]) => row[key] === value),
-          ),
+        order: () =>
+          table === "user_provider_key_events"
+            ? query
+            : Promise.resolve({
+                data: selectedRows(),
+                error: null,
+              }),
+        limit: async (count: number) => ({
+          data: selectedRows().slice(0, count),
           error: null,
         }),
         maybeSingle: async () => ({
@@ -79,6 +107,7 @@ beforeEach(() => {
   vi.stubEnv("DEEPGRAM_API_KEY", "");
   durable.rows.length = 0;
   durable.userRows.length = 0;
+  durable.userEvents.length = 0;
   durable.markedUserRows.length = 0;
 });
 describe("durable key storage", () => {
@@ -191,7 +220,36 @@ describe("durable key storage", () => {
     });
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(durable.markedUserRows).toEqual([
-      { owner_id: "owner-1", key_id: "independent-row-id", response_code: 200 },
+      {
+        owner_id: "owner-1",
+        key_id: "independent-row-id",
+        response_code: 200,
+        action_name: "test",
+      },
+    ]);
+  });
+
+  it("returns bounded owner-scoped key events without provider response content", async () => {
+    const pool = await import("@/lib/openrouter-pool.server");
+    durable.userEvents.push({
+      id: 8,
+      user_id: "owner-1",
+      key_id: "personal-key-id",
+      occurred_at: "2026-01-02T03:04:05.000Z",
+      action: "request",
+      response_code: 503,
+    });
+
+    const history = await pool.listUserProviderKeyEvents("owner-1", 1);
+
+    expect(history).toEqual([
+      {
+        id: 8,
+        key_id: "personal-key-id",
+        occurred_at: "2026-01-02T03:04:05.000Z",
+        action: "request",
+        response_code: 503,
+      },
     ]);
   });
 
@@ -242,7 +300,12 @@ describe("durable key storage", () => {
       });
       expect(JSON.stringify(result)).not.toContain(secret);
       expect(durable.markedUserRows).toEqual([
-        { owner_id: "owner-1", key_id: "independent-row-id", response_code: 200 },
+        {
+          owner_id: "owner-1",
+          key_id: "independent-row-id",
+          response_code: 200,
+          action_name: "test",
+        },
       ]);
     },
   );

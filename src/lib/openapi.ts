@@ -571,6 +571,21 @@ export const openApiSpec = {
                         },
                       },
                     },
+                    history: {
+                      type: "array",
+                      description:
+                        "Up to 200 recent provider key request and test outcomes. Events are recorded from the migration onward; provider response bodies and credentials are never stored.",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "integer" },
+                          key_id: { type: "string", format: "uuid" },
+                          occurred_at: { type: "string", format: "date-time" },
+                          action: { type: "string", enum: ["request", "test"] },
+                          response_code: { type: "integer" },
+                        },
+                      },
+                    },
                   },
                 },
               },

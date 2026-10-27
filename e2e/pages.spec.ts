@@ -6,6 +6,7 @@ const pages = [
   { path: "/docs", heading: "Speak API API reference" },
   { path: "/openrouter", heading: "Provider keys" },
   { path: "/reports", heading: "Usage reports" },
+  { path: "/tokens", heading: "Tokens and key activity" },
   { path: "/page-that-does-not-exist", heading: "Page not found", notFound: true },
 ] as const satisfies Array<{ path: string; heading: string; notFound?: boolean }>;
 
@@ -90,7 +91,9 @@ for (const { path, heading, notFound } of pages) {
   });
 }
 
-test("main navigation links reach the API reference and account page", async ({ page }) => {
+test("main navigation links reach the API reference, account, and token activity", async ({
+  page,
+}) => {
   const errors = trackBrowserErrors(page);
   await page.route("https://openrouter.ai/api/frontend/v1/models/find**", (route) =>
     route.fulfill({ json: { data: { models: [] } } }),
@@ -105,6 +108,12 @@ test("main navigation links reach the API reference and account page", async ({ 
   await page.getByRole("link", { name: "Create account / manage keys" }).click();
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("heading", { name: "Your Speak API account" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tokens" })).toBeVisible();
+  await page.getByRole("link", { name: "Tokens" }).click();
+  await expect(page).toHaveURL(/\/tokens$/);
+  await expect(page.getByRole("heading", { name: "Tokens and key activity" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to speech" }).click();
+  await expect(page).toHaveURL(/\/$/);
   await page.waitForLoadState("networkidle");
 
   expect(errors, "navigation browser errors").toEqual([]);
@@ -193,12 +202,29 @@ test("account tests saved provider keys and colors validation results", async ({
           services: providerKeys.map(({ service }) => service),
           keys: providerKeys.map((key) => ({
             ...key,
-            status: "untested",
+            status: key.service === "lovable" ? "blocked" : "untested",
             failures: 0,
             code: null,
             created_at: new Date().toISOString(),
             last_used: null,
+            quarantined_until: null,
           })),
+          history: [
+            {
+              id: 1,
+              key_id: "openrouter-row",
+              occurred_at: new Date().toISOString(),
+              action: "test",
+              response_code: 200,
+            },
+            {
+              id: 2,
+              key_id: "lovable-row",
+              occurred_at: new Date().toISOString(),
+              action: "request",
+              response_code: 503,
+            },
+          ],
         },
       });
       return;
@@ -236,7 +262,21 @@ test("account tests saved provider keys and colors validation results", async ({
           },
     );
   });
-  await page.route("**/api/user/token", (route) => route.fulfill({ json: { tokens: [] } }));
+  await page.route("**/api/user/token", (route) =>
+    route.fulfill({
+      json: {
+        tokens: [
+          {
+            id: "personal-token-row",
+            label: "E2E token",
+            created_at: new Date().toISOString(),
+            last_used: null,
+            revoked_at: null,
+          },
+        ],
+      },
+    }),
+  );
   await page.route("**/api/public/usage?hours=168", (route) =>
     route.fulfill({
       json: {
@@ -281,6 +321,12 @@ test("account tests saved provider keys and colors validation results", async ({
   await expect(openRouterResult).toContainText("invalid — openrouter rejected this key.");
   await expect(openRouterResult).toHaveClass(/text-red-700/);
   expect(testAuthorization).toBe(`Bearer ${accessToken}`);
+  await page.goto("/tokens");
+  await expect(page.getByRole("heading", { name: "Tokens and key activity" })).toBeVisible();
+  await expect(page.getByText("E2E token")).toBeVisible();
+  await expect(page.getByText("Blocked — test the key or replace it")).toBeVisible();
+  await expect(page.getByText("OpenRouter ••••9xY2")).toBeVisible();
+  await expect(page.getByText("HTTP 503")).toBeVisible();
 });
 
 test("Auto selection remains available after no-key synthesis failure", async ({ page }) => {
@@ -350,7 +396,7 @@ test("server-backed status, history, and OpenAPI endpoints respond successfully"
 });
 
 test("account APIs respond appropriately for the Supabase configuration", async ({ request }) => {
-  const configured = process.env["PLAYWRIGHT_SUPABASE_CONFIGURED"] === "true";
+  const configured = process.env["PLAYWRIGHT_SUPABASE_SERVER_CONFIGURED"] === "true";
   for (const [path, unavailableMessage] of [
     ["/api/user/provider-keys", "Account provider keys require Supabase."],
     ["/api/user/token", "Personal API tokens require Supabase."],

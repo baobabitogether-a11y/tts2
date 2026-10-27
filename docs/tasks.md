@@ -20,6 +20,7 @@ without silently rewriting prior prompt history. Do not record secrets.
 | Publish the completed commits to GitHub/Lovable.                             | Blocked     | Implementation commit `d94c36b` is local and `git push origin main` failed with `unable to get password from user`; `gh auth status` reports no authenticated GitHub host. Authenticate with `gh auth login`, then push `main`.                                                                                                                                         |
 | Verify all HTML pages and browser runtime errors with Docker-backed E2E.     | Done        | All 14 Playwright checks pass against the rebuilt local Compose app: all HTML routes plus 404, navigation, browser errors, provider-key masking/testing, Auto no-key behavior, the `/docs` bearer-token flow, API responses, and expected auth behavior.                                                                                                                |
 | Implement the saved-key, Auto, and `/docs` API tester backlog.               | Done        | Four reported flows are implemented and covered by 41 unit tests and 14 Docker-backed E2E tests. `npm run build`, `npx drizzle-kit check`, targeted ESLint/Prettier, and `git diff --check` pass. Full-repository lint and type-check still report unrelated existing issues; live OpenRouter credential validation was not run.                                        |
+| Add `/tokens` history, availability, and provider-key limits.                  | Done        | Added an authenticated dashboard for personal API tokens and provider keys; key history is durable from migration `0006`, records only action/time/status, and provider limitations are explicit. Migration `0007` keeps test calls from decrementing synthesis in-flight counts. Verified migrations applied, 47 unit tests, 15 Docker E2E tests, build, targeted lint, and local app/Auth health. |
 
 ## Raw prompt history
 
@@ -346,3 +347,11 @@ there should be a test-key option for any of the providers
 ```
 
 **Status: Done.** The account now offers **Test key** on every saved keyed provider (Lovable, Gemini, OpenAI, ElevenLabs, Deepgram, and OpenRouter). The server uses each provider's non-billing authentication endpoint, sends credentials only in the expected authorization header, scopes lookups to the signed-in owner, and returns safe provider-specific status. Google remains excluded because its public TTS integration does not use a saved provider key. Verification: 46 unit tests, all 14 Docker-backed E2E tests, production build, Drizzle check, targeted ESLint/Prettier, and `git diff --check` pass. The browser test checks all six provider rows and their test action.
+
+### 34. Show token history, availability, and key limitations
+
+```text
+/tokens - show history /availability and api-key limitations for all registered keys
+```
+
+**Status: Done.** Scope is signed-in users' personal API tokens and saved provider keys; shared server keys remain restricted to management access. `/tokens` shows active/revoked personal tokens, masked provider-key suffixes and routing availability, provider-specific limit visibility, and up to 200 recent test/synthesis outcomes. Migrations `0006` and `0007` store only owner/key IDs, timestamps, action type, and HTTP result; no credentials or provider response bodies are recorded. Provider limits remain provider-managed and are not represented as live-polling data. Verified with 47 unit tests, all 15 Docker E2E tests, production build, Drizzle checks, targeted lint, and Docker local-up health checks. Full `tsc --noEmit` still reports unrelated existing errors in `account.tsx` key-test rendering and `src/test/user-account.test.ts`.

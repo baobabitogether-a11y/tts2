@@ -1,10 +1,24 @@
 # Product backlog
 
 These are user-reported product issues. Keep implementation status and
-verification evidence in [the task ledger](./tasks.md). All four items below
-are implemented and verified; retain this record as completed backlog history.
+verification evidence in [the task ledger](./tasks.md). The completed items
+below are retained as backlog history.
 
 ## Provider keys and API testing
+
+### 5. Show token and provider-key activity — Done
+
+- Add a signed-in `/tokens` dashboard for personal API token status and all of
+  the user's saved provider keys; do not expose shared server-managed keys.
+- Show current routing availability, recent per-key synthesis/test history,
+  masked key suffixes, and provider-specific billing/quota visibility limits.
+- Record only timestamps, action type, and HTTP result for future key attempts;
+  never store provider response bodies or credentials. Existing provider-level
+  aggregates are not attributable to individual keys, so historical per-key
+  activity begins after this change.
+- Verification: 47 unit tests, 15 Docker-backed E2E tests, production build,
+  Drizzle migration checks, targeted lint, and local Docker app/Auth health
+  checks pass.
 
 ### 1. Show useful saved-key status and test keys — Done
 

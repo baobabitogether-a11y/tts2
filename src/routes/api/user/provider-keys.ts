@@ -3,6 +3,7 @@ import {
   addUserKey,
   hasSupabaseAdminConfig,
   KEY_SERVICES,
+  listUserProviderKeyEvents,
   listUserKeys,
   removeUserKey,
   testUserProviderKey,
@@ -27,7 +28,11 @@ async function handle(request: Request) {
     const userId = await requireSupabaseUser(request);
     if (request.method === "GET") {
       return Response.json(
-        { services: KEY_SERVICES, keys: await listUserKeys(userId) },
+        {
+          services: KEY_SERVICES,
+          keys: await listUserKeys(userId),
+          history: await listUserProviderKeyEvents(userId),
+        },
         { headers: { ...CORS, "Cache-Control": "no-store" } },
       );
     }

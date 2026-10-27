@@ -222,6 +222,9 @@ function Index() {
         <Link to="/account" className="underline hover:text-foreground">
           Create account / manage keys
         </Link>
+        <Link to="/tokens" className="underline hover:text-foreground">
+          Token activity
+        </Link>
       </nav>
 
       <section className="mt-10 space-y-3">

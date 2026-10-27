@@ -115,6 +115,14 @@ describe("public OpenAPI specification", () => {
         .schema.properties.test.properties.service.enum,
     ).toEqual(["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram"]);
     expect(
+      openApiSpec.paths["/api/user/provider-keys"].get.responses["200"].content["application/json"]
+        .schema.properties.history.items.properties,
+    ).toMatchObject({
+      key_id: { type: "string", format: "uuid" },
+      action: { type: "string", enum: ["request", "test"] },
+      response_code: { type: "integer" },
+    });
+    expect(
       keyManagement.get.responses["200"].content["application/json"].schema.properties.keys.items
         .properties,
     ).toMatchObject({

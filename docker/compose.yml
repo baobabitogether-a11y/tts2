@@ -12,8 +12,12 @@ services:
     environment:
       CI: "true"
       NODE_ENV: test
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://127.0.0.1:4173}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-playwright-test-publishable-key}
+      PLAYWRIGHT_SUPABASE_CONFIGURED: "true"
+      PLAYWRIGHT_SUPABASE_SERVER_CONFIGURED: "false"
       PLAYWRIGHT_BASE_URL: ${PLAYWRIGHT_BASE_URL:-}
-      PLAYWRIGHT_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      PLAYWRIGHT_SUPABASE_URL: ${PLAYWRIGHT_SUPABASE_URL:-${VITE_SUPABASE_URL:-http://127.0.0.1:4173}}
       PLAYWRIGHT_OUTPUT_DIR: /workspace/docker/artifacts/test-results
       PLAYWRIGHT_HTML_OUTPUT_DIR: /workspace/docker/artifacts/playwright-report
     volumes:
