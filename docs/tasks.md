@@ -16,7 +16,8 @@ Preserve original prompts and detailed completion evidence in
 | Responsive shell and themes | Done | Mobile navigation and System/Light/Dark themes are implemented. |
 | Playable audio history | Done | Successful playground audio is kept in browser-local IndexedDB (100 records / 50 MB) and listed on `/reports`. |
 | Provider key failure diagnostics | Done | API errors now explain likely causes by HTTP status, summarize attempted keys, include short sanitized provider error detail, and explicitly distinguish HTTP 5xx outages from invalid credentials. |
-| GitHub publishing | Synced | Verified `main` and `origin/main` both point to `9378e8e`. A push attempt reported an authentication error, but the remote ref is now current. |
+| Remaining end-to-end validation | Blocked on external prerequisites | Source is synced to `origin/main`; hosted Lovable still serves the old API contract. Live provider verification needs a configured provider credential; full Supabase CLI startup needs Docker bridge TCP. The minimal local stack is healthy and its migrations/Auth/key persistence are verified. |
+| GitHub publishing | Synced | Verified `main` and `origin/main` both point to `bc197ed`. The most recent documentation update is local and not yet pushed. |
 | Hosted provider diagnostics | Deployment pending | Production `/api/public/openapi.json` still says “All eligible provider keys failed,” while the local app serves the improved 503 explanation. Trigger or await the connected Lovable deployment, then recheck the published contract. |
 | Documentation efficiency | Done | Frequent guidance and task status are concise; archives and environment/backlog references are routed by topic in [README.md](./README.md). |
 

@@ -443,3 +443,21 @@ to `9378e8e`. No deployment workflow exists in the repository. Rebuilt local
 app health is OK and its OpenAPI endpoint serves the new provider failure
 description. The connected Lovable deployment must complete; verify the
 production contract after it does.
+
+### 41. Finish all remaining tasks
+
+```text
+finish all tasks
+```
+
+**Status: Blocked on external prerequisites.** Rechecked the running local app
+and confirmed it is healthy and serves the improved OpenAPI 502 description.
+`origin/main` contains commit `bc197ed`, but the production Lovable API still
+serves “All eligible provider keys failed.” No provider credentials are
+configured in the local app for a real synthesis check, and full Supabase CLI
+startup remains blocked by this Codespace's Docker bridge networking. The
+minimal local Postgres/Auth/REST/app stack is working; don't repeat the blocked
+bridge tests absent a network/runtime change. Ask for a provider key to be
+configured through the project's secure key-management path, a Lovable
+redeploy, or changed Docker network capability before claiming those checks
+complete.
