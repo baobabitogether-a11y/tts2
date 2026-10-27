@@ -10,10 +10,10 @@ are implemented and verified; retain this record as completed backlog history.
 
 - Replace `unknown` in the OpenRouter saved-key row with a masked suffix (last
   four characters only); never return or render the full secret after save.
-- Add an explicit **Test key** action that safely validates the saved key with
-  OpenRouter and displays the result and available token/credit status when the
-  provider returns it. Distinguish invalid credentials, unavailable status
-  information, and provider/network failures.
+- Add an explicit **Test key** action for each saved keyed provider. Use
+  provider-specific authentication endpoints, display OpenRouter token/credit
+  details when available, and distinguish invalid credentials, unavailable
+  status information, and provider/network failures.
 - Keep secrets encrypted at rest; do not put keys in URLs, browser logs, or
   server logs. Test response shapes and key-redaction behavior.
 

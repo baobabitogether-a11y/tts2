@@ -600,7 +600,7 @@ export const openApiSpec = {
                     type: "boolean",
                     const: true,
                     description:
-                      "Test a saved OpenRouter key and return safe account/token status.",
+                      "Test a saved provider key with a provider-specific non-billing authentication endpoint. OpenRouter may also return safe account/token status.",
                   },
                   id: { type: "string", format: "uuid" },
                 },
@@ -610,7 +610,7 @@ export const openApiSpec = {
         },
         responses: {
           "200": {
-            description: "OpenRouter key test result and safe token/account status.",
+            description: "Provider key test result and, for OpenRouter, safe token/account status.",
             content: {
               "application/json": {
                 schema: {
@@ -620,6 +620,7 @@ export const openApiSpec = {
                       type: "object",
                       properties: {
                         valid: { type: "boolean" },
+                        service: { type: "string", enum: keyedProviders },
                         status: { type: "string" },
                         http_status: { type: "integer" },
                         account: { type: "object" },

@@ -106,7 +106,14 @@ describe("public OpenAPI specification", () => {
     expect(personalKeyBody.properties.service.enum).toContain("deepgram");
     expect(personalKeyBody.properties.key).toMatchObject({ type: "string", maxLength: 500 });
     expect(personalKeyBody.properties.test).toMatchObject({ type: "boolean", const: true });
+    expect(personalKeyBody.properties.test.description).toContain(
+      "provider-specific non-billing authentication endpoint",
+    );
     expect(personalKeyBody.anyOf).toContainEqual({ required: ["test", "id"] });
+    expect(
+      openApiSpec.paths["/api/user/provider-keys"].post.responses["200"].content["application/json"]
+        .schema.properties.test.properties.service.enum,
+    ).toEqual(["openrouter", "lovable", "gemini", "openai", "elevenlabs", "deepgram"]);
     expect(
       keyManagement.get.responses["200"].content["application/json"].schema.properties.keys.items
         .properties,

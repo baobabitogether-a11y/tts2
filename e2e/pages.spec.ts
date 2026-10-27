@@ -142,7 +142,7 @@ test("account shows full Auth API errors to the user", async ({ page }) => {
   );
 });
 
-test("account shows a masked OpenRouter key and its tested status", async ({ page }) => {
+test("account tests saved provider keys and colors validation results", async ({ page }) => {
   const now = Math.floor(Date.now() / 1000);
   const payload = Buffer.from(
     JSON.stringify({
@@ -161,8 +161,16 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
     user_metadata: {},
     created_at: new Date().toISOString(),
   };
-  let testStatus: "valid" | "invalid" = "valid";
+  let openRouterTestStatus: "valid" | "invalid" = "valid";
   let testAuthorization = "";
+  const providerKeys = [
+    { id: "openrouter-row", service: "openrouter", key_suffix: "9xY2" },
+    { id: "lovable-row", service: "lovable", key_suffix: "L0v3" },
+    { id: "gemini-row", service: "gemini", key_suffix: "G3m1" },
+    { id: "openai-row", service: "openai", key_suffix: "0p3n" },
+    { id: "elevenlabs-row", service: "elevenlabs", key_suffix: "3l3v" },
+    { id: "deepgram-row", service: "deepgram", key_suffix: "D33p" },
+  ];
 
   await page.route("**/auth/v1/signup", (route) =>
     route.fulfill({
@@ -182,32 +190,48 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
     if (route.request().method() === "GET") {
       await route.fulfill({
         json: {
-          services: ["openrouter"],
-          keys: [
-            {
-              id: "independent-row-id",
-              service: "openrouter",
-              key_suffix: "9xY2",
-              status: testStatus,
-              failures: 0,
-              code: null,
-              created_at: new Date().toISOString(),
-              last_used: null,
-            },
-          ],
+          services: providerKeys.map(({ service }) => service),
+          keys: providerKeys.map((key) => ({
+            ...key,
+            status: "untested",
+            failures: 0,
+            code: null,
+            created_at: new Date().toISOString(),
+            last_used: null,
+          })),
         },
       });
       return;
     }
 
     testAuthorization = route.request().headers()["authorization"] ?? "";
-    expect(route.request().postDataJSON()).toEqual({ test: true, id: "independent-row-id" });
+    const body = route.request().postDataJSON() as { test: boolean; id: string };
+    expect(body.test).toBe(true);
+    const key = providerKeys.find((providerKey) => providerKey.id === body.id);
+    expect(key).toBeDefined();
+    if (!key) throw new Error("Requested provider key was not in the account fixture");
     await route.fulfill(
-      testStatus === "valid"
-        ? { json: { test: { status: "valid", account: { limit: 100, usage: 2 } } } }
+      key.service !== "openrouter" || openRouterTestStatus === "valid"
+        ? {
+            json: {
+              test: {
+                valid: true,
+                service: key.service,
+                status: "valid",
+                ...(key.service === "openrouter"
+                  ? { account: { limit: 100, usage: 2 } }
+                  : { message: `${key.service} accepted this API key.` }),
+              },
+            },
+          }
         : {
             json: {
-              test: { valid: false, status: "invalid", message: "OpenRouter rejected this key." },
+              test: {
+                valid: false,
+                service: key.service,
+                status: "invalid",
+                message: "openrouter rejected this key.",
+              },
             },
           },
     );
@@ -238,14 +262,24 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
   await page.locator("form").getByRole("button", { name: "Create account" }).click();
   await expect(page.getByText(user.email)).toBeVisible();
   await expect(page.getByLabel("openrouter key suffix")).toHaveText("••••9xY2");
-  await page.getByRole("button", { name: "Test key" }).click();
-  const result = page.getByRole("status");
-  await expect(result).toContainText("valid — limit: 100 · usage: 2");
-  await expect(result).toHaveClass(/text-green-700/);
-  testStatus = "invalid";
-  await page.getByRole("button", { name: "Test key" }).click();
-  await expect(result).toContainText("invalid — OpenRouter rejected this key.");
-  await expect(result).toHaveClass(/text-red-700/);
+  const testButtons = page.getByRole("button", { name: "Test key" });
+  await expect(testButtons).toHaveCount(providerKeys.length);
+  for (const [index, key] of providerKeys.entries()) {
+    await testButtons.nth(index).click();
+    const result = page.getByRole("status").nth(index);
+    await expect(result).toContainText(
+      key.service === "openrouter"
+        ? "valid — limit: 100 · usage: 2"
+        : `valid — ${key.service} accepted this API key.`,
+    );
+    if (key.service === "openrouter") await expect(result).toHaveClass(/text-green-700/);
+  }
+  const openRouterButton = testButtons.first();
+  openRouterTestStatus = "invalid";
+  await openRouterButton.click();
+  const openRouterResult = page.getByRole("status").first();
+  await expect(openRouterResult).toContainText("invalid — openrouter rejected this key.");
+  await expect(openRouterResult).toHaveClass(/text-red-700/);
   expect(testAuthorization).toBe(`Bearer ${accessToken}`);
 });
 

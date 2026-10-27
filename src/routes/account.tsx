@@ -500,17 +500,15 @@ function Account() {
                     {key.status}
                     {key.failures ? ` (${key.failures} failures)` : ""}
                   </span>
-                  {key.service === "openrouter" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || keyTests[key.id]?.status === "testing"}
-                      onClick={() => void testKey(key.id)}
-                    >
-                      Test key
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || keyTests[key.id]?.status === "testing"}
+                    onClick={() => void testKey(key.id)}
+                  >
+                    Test key
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

@@ -338,3 +338,11 @@ validate key - wont u show red/green ??
 ```
 
 **Status: Done.** Key validation results now use restrained green text for valid keys and red text for invalid keys, while unavailable/unreachable states stay neutral. A browser regression verifies both success and rejection colors. `npm run build`, targeted ESLint/Prettier, and all 14 Docker-backed E2E tests pass.
+
+### 33. Add key testing for every provider
+
+```text
+there should be a test-key option for any of the providers
+```
+
+**Status: Done.** The account now offers **Test key** on every saved keyed provider (Lovable, Gemini, OpenAI, ElevenLabs, Deepgram, and OpenRouter). The server uses each provider's non-billing authentication endpoint, sends credentials only in the expected authorization header, scopes lookups to the signed-in owner, and returns safe provider-specific status. Google remains excluded because its public TTS integration does not use a saved provider key. Verification: 46 unit tests, all 14 Docker-backed E2E tests, production build, Drizzle check, targeted ESLint/Prettier, and `git diff --check` pass. The browser test checks all six provider rows and their test action.

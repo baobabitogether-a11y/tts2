@@ -182,7 +182,7 @@ describe("durable key storage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await pool.testUserOpenRouterKey("owner-1", "independent-row-id");
+    const result = await pool.testUserProviderKey("owner-1", "independent-row-id");
 
     expect(result).toMatchObject({
       valid: true,
@@ -204,10 +204,46 @@ describe("durable key storage", () => {
       vi.fn(async () => Response.json({ error: `Rejected ${secret}` }, { status: 401 })),
     );
 
-    const result = await pool.testUserOpenRouterKey("owner-1", "independent-row-id");
+    const result = await pool.testUserProviderKey("owner-1", "independent-row-id");
 
     expect(result).toMatchObject({ valid: false, status: "invalid", http_status: 401 });
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(JSON.stringify(result)).not.toContain("Rejected");
   });
+
+  it.each([
+    ["lovable", "https://ai.gateway.lovable.dev/v1/models", "Authorization", "Bearer"],
+    ["gemini", "https://generativelanguage.googleapis.com/v1beta/models", "x-goog-api-key", ""],
+    ["openai", "https://api.openai.com/v1/models", "Authorization", "Bearer"],
+    ["elevenlabs", "https://api.elevenlabs.io/v1/user", "xi-api-key", ""],
+    ["deepgram", "https://api.deepgram.com/v1/projects", "Authorization", "Token"],
+  ] as const)(
+    "tests saved %s keys without exposing credentials in request URLs",
+    async (service, endpoint, header, scheme) => {
+      const pool = await import("@/lib/openrouter-pool.server");
+      const secret = `synthetic-${service}-key`;
+      await pool.addUserKey("owner-1", service, secret);
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(input)).toBe(endpoint);
+        expect(new Headers(init?.headers).get(header)).toBe(
+          scheme ? `${scheme} ${secret}` : secret,
+        );
+        return new Response(null, { status: 200 });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await pool.testUserProviderKey("owner-1", "independent-row-id");
+
+      expect(result).toMatchObject({
+        valid: true,
+        status: "valid",
+        service,
+        message: `${service} accepted this API key.`,
+      });
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(durable.markedUserRows).toEqual([
+        { owner_id: "owner-1", key_id: "independent-row-id", response_code: 200 },
+      ]);
+    },
+  );
 });

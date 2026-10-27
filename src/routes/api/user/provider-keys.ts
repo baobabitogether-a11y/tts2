@@ -5,7 +5,7 @@ import {
   KEY_SERVICES,
   listUserKeys,
   removeUserKey,
-  testUserOpenRouterKey,
+  testUserProviderKey,
   type KeyService,
 } from "@/lib/openrouter-pool.server";
 import { requireSupabaseUser, UserAuthError } from "@/lib/user-account.server";
@@ -46,7 +46,7 @@ async function handle(request: Request) {
           );
         }
         return Response.json(
-          { test: await testUserOpenRouterKey(userId, body.id) },
+          { test: await testUserProviderKey(userId, body.id) },
           {
             headers: { ...CORS, "Cache-Control": "no-store" },
           },

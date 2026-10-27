@@ -277,7 +277,7 @@ export async function markUserKey(userId: string, id: string, code: number) {
   if (error) throw new Error("Could not update your provider key status");
 }
 
-export async function testUserOpenRouterKey(userId: string, id: string) {
+export async function testUserProviderKey(userId: string, id: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: row, error } = await supabaseAdmin
     .from("user_provider_api_keys")
@@ -286,57 +286,101 @@ export async function testUserOpenRouterKey(userId: string, id: string) {
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Could not load your provider key");
-  if (!row || row.service !== "openrouter") {
-    return { valid: false, status: "not_found", message: "OpenRouter key not found." };
+  if (!row || !KEY_SERVICES.includes(row.service as KeyService)) {
+    return { valid: false, status: "not_found", message: "Provider key not found." };
   }
 
+  const key = await decryptKey(row);
+  const endpoints: Record<KeyService, { url: string; headers: (key: string) => HeadersInit }> = {
+    openrouter: {
+      url: "https://openrouter.ai/api/v1/key",
+      headers: (value) => ({ Authorization: `Bearer ${value}` }),
+    },
+    lovable: {
+      url: "https://ai.gateway.lovable.dev/v1/models",
+      headers: (value) => ({ Authorization: `Bearer ${value}` }),
+    },
+    gemini: {
+      url: "https://generativelanguage.googleapis.com/v1beta/models",
+      headers: (value) => ({ "x-goog-api-key": value }),
+    },
+    openai: {
+      url: "https://api.openai.com/v1/models",
+      headers: (value) => ({ Authorization: `Bearer ${value}` }),
+    },
+    elevenlabs: {
+      url: "https://api.elevenlabs.io/v1/user",
+      headers: (value) => ({ "xi-api-key": value }),
+    },
+    deepgram: {
+      url: "https://api.deepgram.com/v1/projects",
+      headers: (value) => ({ Authorization: `Token ${value}` }),
+    },
+  };
+  const provider = row.service as KeyService;
+  const endpoint = endpoints[provider];
   let response: Response;
   try {
-    response = await fetch("https://openrouter.ai/api/v1/key", {
-      headers: { Authorization: `Bearer ${await decryptKey(row)}` },
+    response = await fetch(endpoint.url, {
+      headers: endpoint.headers(key),
     });
   } catch {
     await markUserKey(userId, id, 599);
     return {
       valid: false,
       status: "unreachable",
-      message: "Could not reach OpenRouter to test this key. Try again later.",
+      service: provider,
+      message: `Could not reach ${provider} to test this key. Try again later.`,
     };
   }
 
   if (!response.ok) {
     await response.body?.cancel();
     await markUserKey(userId, id, response.status);
+    const invalid = response.status === 401 || response.status === 403;
     return {
       valid: false,
-      status: response.status === 401 || response.status === 403 ? "invalid" : "unavailable",
+      status: invalid ? "invalid" : "unavailable",
+      service: provider,
       http_status: response.status,
-      message:
-        response.status === 401 || response.status === 403
-          ? "OpenRouter rejected this key."
-          : `OpenRouter key status check failed (HTTP ${response.status}).`,
+      message: invalid
+        ? `${provider} rejected this key.`
+        : `${provider} key check failed (HTTP ${response.status}).`,
     };
   }
 
-  const payload: unknown = await response.json();
-  const data =
-    typeof payload === "object" && payload !== null && "data" in payload ? payload.data : undefined;
-  const account =
-    typeof data === "object" && data !== null
-      ? Object.fromEntries(
-          ["label", "limit", "limit_remaining", "usage", "is_free_tier", "rate_limit"]
-            .filter((name) => name in data)
-            .map((name) => [name, Reflect.get(data, name)]),
-        )
-      : undefined;
+  let account: Record<string, unknown> | undefined;
+  let status = "valid";
+  if (provider === "openrouter") {
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = undefined;
+    }
+    const data =
+      typeof payload === "object" && payload !== null && "data" in payload
+        ? payload.data
+        : undefined;
+    account =
+      typeof data === "object" && data !== null
+        ? Object.fromEntries(
+            ["label", "limit", "limit_remaining", "usage", "is_free_tier", "rate_limit"]
+              .filter((name) => name in data)
+              .map((name) => [name, Reflect.get(data, name)]),
+          )
+        : undefined;
+    if (!account) status = "valid_status_unavailable";
+  } else {
+    await response.body?.cancel();
+  }
   await markUserKey(userId, id, response.status);
   return {
     valid: true,
-    status: account ? "valid" : "valid_status_unavailable",
+    status,
+    service: provider,
     ...(account ? { account } : {}),
-    ...(!account
-      ? { message: "The key is valid, but OpenRouter returned no account status details." }
-      : {}),
+    ...(!account ? { message: `${provider} accepted this API key.` } : {}),
   };
 }
 export async function resetKey(id: string, service?: KeyService) {
