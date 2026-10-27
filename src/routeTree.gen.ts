@@ -21,6 +21,7 @@ import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public
 import { Route as ApiPublicOpenrouterKeysRouteImport } from './routes/api/public/openrouter-keys'
 import { Route as ApiPublicTtsRouteImport } from './routes/api/public/tts'
 import { Route as ApiPublicUsageRouteImport } from './routes/api/public/usage'
+import { Route as ApiReportUsageRouteImport } from './routes/api/report/usage'
 import { Route as ApiUserProviderKeysRouteImport } from './routes/api/user/provider-keys'
 import { Route as ApiUserTokenRouteImport } from './routes/api/user/token'
 
@@ -84,6 +85,11 @@ const ApiPublicUsageRoute = ApiPublicUsageRouteImport.update({
   path: '/api/public/usage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReportUsageRoute = ApiReportUsageRouteImport.update({
+  id: '/api/report/usage',
+  path: '/api/report/usage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUserProviderKeysRoute = ApiUserProviderKeysRouteImport.update({
   id: '/api/user/provider-keys',
   path: '/api/user/provider-keys',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
   '/api/public/usage': typeof ApiPublicUsageRoute
+  '/api/report/usage': typeof ApiReportUsageRoute
   '/api/user/provider-keys': typeof ApiUserProviderKeysRoute
   '/api/user/token': typeof ApiUserTokenRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
   '/api/public/usage': typeof ApiPublicUsageRoute
+  '/api/report/usage': typeof ApiReportUsageRoute
   '/api/user/provider-keys': typeof ApiUserProviderKeysRoute
   '/api/user/token': typeof ApiUserTokenRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/api/public/openrouter-keys': typeof ApiPublicOpenrouterKeysRoute
   '/api/public/tts': typeof ApiPublicTtsRoute
   '/api/public/usage': typeof ApiPublicUsageRoute
+  '/api/report/usage': typeof ApiReportUsageRoute
   '/api/user/provider-keys': typeof ApiUserProviderKeysRoute
   '/api/user/token': typeof ApiUserTokenRoute
 }
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/api/public/openrouter-keys'
     | '/api/public/tts'
     | '/api/public/usage'
+    | '/api/report/usage'
     | '/api/user/provider-keys'
     | '/api/user/token'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/api/public/openrouter-keys'
     | '/api/public/tts'
     | '/api/public/usage'
+    | '/api/report/usage'
     | '/api/user/provider-keys'
     | '/api/user/token'
   id:
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/api/public/openrouter-keys'
     | '/api/public/tts'
     | '/api/public/usage'
+    | '/api/report/usage'
     | '/api/user/provider-keys'
     | '/api/user/token'
   fileRoutesById: FileRoutesById
@@ -208,6 +220,7 @@ export interface RootRouteChildren {
   ApiPublicOpenrouterKeysRoute: typeof ApiPublicOpenrouterKeysRoute
   ApiPublicTtsRoute: typeof ApiPublicTtsRoute
   ApiPublicUsageRoute: typeof ApiPublicUsageRoute
+  ApiReportUsageRoute: typeof ApiReportUsageRoute
   ApiUserProviderKeysRoute: typeof ApiUserProviderKeysRoute
   ApiUserTokenRoute: typeof ApiUserTokenRoute
 }
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicUsageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/report/usage': {
+      id: '/api/report/usage'
+      path: '/api/report/usage'
+      fullPath: '/api/report/usage'
+      preLoaderRoute: typeof ApiReportUsageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/user/provider-keys': {
       id: '/api/user/provider-keys'
       path: '/api/user/provider-keys'
@@ -328,6 +348,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicOpenrouterKeysRoute: ApiPublicOpenrouterKeysRoute,
   ApiPublicTtsRoute: ApiPublicTtsRoute,
   ApiPublicUsageRoute: ApiPublicUsageRoute,
+  ApiReportUsageRoute: ApiReportUsageRoute,
   ApiUserProviderKeysRoute: ApiUserProviderKeysRoute,
   ApiUserTokenRoute: ApiUserTokenRoute,
 }

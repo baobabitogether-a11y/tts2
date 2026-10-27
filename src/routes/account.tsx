@@ -205,7 +205,7 @@ function Account() {
     const [keyResponse, tokenResponse, usageResponse] = await Promise.all([
       fetch("/api/user/provider-keys", { headers }),
       fetch("/api/user/token", { headers }),
-      fetch("/api/public/usage?hours=168", { headers }),
+      fetch("/api/report/usage?hours=168", { headers }),
     ]);
     const [keyBody, tokenBody, usageBody] = await Promise.all([
       keyResponse.json(),

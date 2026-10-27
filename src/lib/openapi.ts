@@ -440,10 +440,36 @@ export const openApiSpec = {
     },
     "/api/public/usage": {
       get: {
-        operationId: "getProviderUsageReport",
+        operationId: "getProviderUsageReportLegacy",
         summary: "Get provider usage statistics",
         description:
-          "Returns parsable JSON aggregates by actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage.",
+          "Legacy alias of /api/report/usage. Returns JSON aggregates by actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage.",
+        security: [{ personalApiTokenAuth: [] }, { supabaseSessionAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          {
+            name: "hours",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 720, default: 24 },
+          },
+        ],
+        responses: {
+          "200": {
+            description:
+              "Request, audio, character, estimated-token, reported-token, and latency totals grouped by actual provider.",
+            content: { "application/json": { schema: usageReportSchema } },
+          },
+          "401": { description: "Management authorization required" },
+          "503": { description: "Usage report unavailable" },
+        },
+      },
+    },
+    "/api/report/usage": {
+      get: {
+        operationId: "getProviderUsageReport",
+        summary: "Get provider usage report",
+        description:
+          "Returns the persisted usage aggregates shown in the app's usage report, grouped by the actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage. Playable audio history is stored in the user's browser and is not included.",
         security: [{ personalApiTokenAuth: [] }, { supabaseSessionAuth: [] }, { bearerAuth: [] }],
         parameters: [
           {

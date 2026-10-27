@@ -54,7 +54,7 @@ describe("public OpenAPI specification", () => {
   });
 
   it("documents authenticated machine-readable usage aggregates", () => {
-    const usage = openApiSpec.paths["/api/public/usage"].get;
+    const usage = openApiSpec.paths["/api/report/usage"].get;
     const report = usage.responses["200"].content["application/json"].schema;
 
     expect(usage.security).toEqual([
@@ -73,6 +73,7 @@ describe("public OpenAPI specification", () => {
       "/api/public/openrouter-keys",
       "/api/public/tts",
       "/api/public/usage",
+      "/api/report/usage",
       "/api/user/provider-keys",
       "/api/user/token",
     ]);

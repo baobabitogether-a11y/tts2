@@ -83,7 +83,7 @@ function Reports() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/public/usage?hours=${encodeURIComponent(hours)}`, {
+      const response = await fetch(`/api/report/usage?hours=${encodeURIComponent(hours)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const body = await response.json();

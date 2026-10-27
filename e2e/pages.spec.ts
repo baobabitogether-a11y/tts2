@@ -506,6 +506,41 @@ test("generated audio is saved and playable in browser history", async ({ page }
   await expect(page.locator("audio").first()).toBeVisible();
 });
 
+test("usage reports load from the report API endpoint", async ({ page }) => {
+  let reportRequest: URL | undefined;
+  await page.route("**/api/report/usage?**", async (route) => {
+    reportRequest = new URL(route.request().url());
+    expect(route.request().headers()["authorization"]).toBe("Bearer test-management-token");
+    await route.fulfill({
+      json: {
+        window_hours: 24,
+        totals: {
+          requests: 3,
+          successful: 2,
+          failed: 1,
+          cached: 0,
+          audio_bytes: 4096,
+          input_chars: 20,
+          output_chars: 20,
+          estimated_input_tokens: 5,
+          provider_input_tokens: 0,
+          provider_output_tokens: 0,
+          avg_duration_ms: 120,
+        },
+        services: [],
+      },
+    });
+  });
+
+  await page.goto("/reports");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Management token").fill("test-management-token");
+  await page.getByRole("button", { name: "Load report" }).click();
+  await expect(page.getByRole("heading", { name: "Last 24 hours" })).toBeVisible();
+  await expect(page.getByText("3", { exact: true })).toBeVisible();
+  expect(reportRequest?.searchParams.get("hours")).toBe("24");
+});
+
 test("server-backed status, history, and OpenAPI endpoints respond successfully", async ({
   request,
 }) => {
@@ -544,6 +579,12 @@ test("unauthenticated public API routes return expected client errors", async ({
 
   const usage = await request.get("/api/public/usage");
   expect(usage.status(), "/api/public/usage").toBe(401);
+
+  const report = await request.get("/api/report/usage");
+  expect(report.status(), "/api/report/usage").toBe(401);
+
+  const reportPreflight = await request.fetch("/api/report/usage", { method: "OPTIONS" });
+  expect(reportPreflight.status(), "/api/report/usage preflight").toBe(204);
 
   const preflight = await request.fetch("/api/public/tts", { method: "OPTIONS" });
   expect(preflight.status(), "TTS preflight").toBe(204);
