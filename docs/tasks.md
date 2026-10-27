@@ -321,3 +321,11 @@ go on
 **Status: Done.** The server only returns the last four characters of saved keys and allowlisted OpenRouter status fields; tests cover invalid, unavailable, and unreachable key-test outcomes without returning provider error bodies or secrets. Signed-in playground requests carry the session bearer token so the server can select the owner's encrypted key, and OpenRouter synthesis is covered with a mocked provider response. Auto remains selected after a no-key failure and offers a link to Account settings. The `/docs` tester sends an optional personal token only as an Authorization bearer header; the browser E2E verifies it is absent from the URL and rendered page. A dedicated E2E also verifies the account test-key action and masked suffix.
 
 Verification: `npm test` (41 tests), `npm run build`, `npx drizzle-kit check`, targeted ESLint/Prettier, `git diff --check`, and all 14 Docker-backed Playwright tests pass. `./start.sh` rebuilt the local Docker app and verified Postgres, Supabase gateway/Auth, app health, and all five container healthchecks. The full-repository `npm run lint` and `npx tsc --noEmit` still fail on pre-existing issues in untouched files (lint formatting errors elsewhere; six TS4111 index-signature errors in `src/test/user-account.test.ts`). No live provider key was available for an external OpenRouter account check.
+
+### 31. Continue local work after push failures
+
+```text
+AGENTS.md - never stop on git push failure - leave that to the developer and continue working on your left tasks
+```
+
+**Status: Done.** Added project guidance that a failed `git push` must not block other requested implementation or verification, and that authentication troubleshooting is left to the developer unless requested. Report unpublished commits clearly at completion.
