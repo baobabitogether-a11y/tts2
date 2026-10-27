@@ -1,7 +1,44 @@
-- [x] Add multilingual Fish Audio request handling and client language choices.
-- [x] Persist provider keys, failure status, quarantine and rotation in service-role-only Cloud tables.
-- [x] Secure key management with encrypted storage, non-sensitive row IDs and server-verified authorization.
-- [x] Load `OPENROUTER_API_KEY` into the encrypted server key pool.
-- [ ] Verify end-to-end key persistence and real multilingual audio with full local Supabase. The migrations and key-pool RPCs pass against the Supabase Postgres image, but this workspace's Docker bridge blocks inter-container TCP; real synthesis also needs a provider key.
-- [x] Fix Fish Audio speaking target languages with English phonetics.
-- [x] Extend services with more providers/options: added Deepgram Aura HTTP TTS, language-matched Aura models, speed and output encoding/container options, and environment/shared/personal key support. Real provider audio remains unverified without a Deepgram key.
+# Product roadmap
+
+Priorities are ordered by the remaining product value and readiness. A blocker
+is a prerequisite, not a reason to repeat an already-failed environment probe.
+
+## P1 — Verify real provider speech end to end
+
+**Status: Open; needs provider credentials.**
+
+- Run real multilingual synthesis with a valid provider key.
+- Verify the actual provider, response time, MIME type, and returned audio in the
+  app, including playback from browser history.
+- Cover more than one provider where credentials are available; do not claim
+  live provider behavior based only on mocked tests.
+
+**Prerequisite:** a valid provider API key and outbound access to that provider.
+No key is committed or required to be shared in the repository.
+
+## P2 — Revisit full Supabase CLI integration testing
+
+**Status: Blocked by this Codespace's Docker bridge networking; app needs are
+covered by the verified minimal local stack.**
+
+- Resume `supabase start` integration checks only after container-to-container
+  TCP connectivity works or the Docker runtime/network policy changes.
+- Do not repeat arbitrary subnet or host-gateway attempts; see
+  [the verified Codespaces findings](docs/codespace.md).
+
+**Already verified locally:** Postgres, PostgREST, GoTrue, gateway, and app
+healthchecks; ordered Drizzle migrations; Auth signup; and encrypted provider
+key persistence using a synthetic key. This is the project's minimal
+host-network stack, not the complete Supabase CLI stack.
+
+## Delivered
+
+- Multilingual Fish Audio handling and language choices.
+- Durable provider-key storage, AES-GCM encryption, rotation, failure tracking,
+  quarantine, and server-verified key management.
+- Deepgram Aura and provider-specific options alongside existing TTS providers.
+- Saved-key testing, Auto routing, personal API tokens, and the `/docs` API
+  tester.
+- `/tokens` provider-key and personal-token activity, plus usage reports.
+- Responsive navigation, mobile menu, persisted themes, and playable
+  browser-local audio history with per-generation details.

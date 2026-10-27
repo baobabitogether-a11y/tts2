@@ -2,7 +2,8 @@
 
 These are user-reported product issues. Keep implementation status and
 verification evidence in [the task ledger](./tasks.md). The completed items
-below are retained as backlog history.
+below are retained as backlog history. All items here are complete; read this
+file only when changing provider-key management or API testing.
 
 ## Provider keys and API testing
 
