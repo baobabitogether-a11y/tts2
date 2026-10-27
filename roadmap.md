@@ -5,9 +5,14 @@ is a prerequisite, not a reason to repeat an already-failed environment probe.
 
 ## P1 — Verify real provider speech end to end
 
-**Status: Open; needs provider credentials.**
+**Status: Blocked; production key/configuration is not healthy.**
 
-- Run real multilingual synthesis with a valid provider key.
+- Restore a working provider key and resolve why production health marks the
+  configured OpenRouter key blocked after HTTP 401 while synthesis reports
+  HTTP 503.
+- Confirm production serves the current API contract after the reported
+  Lovable redeploy.
+- Run real multilingual synthesis with a working provider key.
 - Verify the actual provider, response time, MIME type, and returned audio in the
   app, including playback from browser history.
 - Cover more than one provider where credentials are available; do not claim

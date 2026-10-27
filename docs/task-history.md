@@ -450,22 +450,19 @@ production contract after it does.
 finish all tasks
 ```
 
-**Status: Blocked on external prerequisites.** Rechecked the running local app
-and confirmed it is healthy and serves the improved OpenAPI 502 description.
-`origin/main` contains commit `bc197ed`, but the production Lovable API still
-serves “All eligible provider keys failed.” No provider credentials are
-configured in the local app for a real synthesis check, and full Supabase CLI
-startup remains blocked by this Codespace's Docker bridge networking. The
-minimal local Postgres/Auth/REST/app stack is working; don't repeat the blocked
-bridge tests absent a network/runtime change. Ask for a provider key to be
-configured through the project's secure key-management path, a Lovable
-redeploy, or changed Docker network capability before claiming those checks
-complete.
+**Status: Partially blocked.** Rechecked the running local app and confirmed it
+is healthy and serves the improved OpenAPI 502 description. `origin/main`
+contains commit `bc197ed`, but the production Lovable API still serves “All
+eligible provider keys failed.” Full Supabase CLI startup remains blocked by
+this Codespace's Docker bridge networking. The minimal local
+Postgres/Auth/REST/app stack is working; don't repeat the blocked bridge tests
+absent a network/runtime change.
 
-Follow-up checks: production still serves the old OpenAPI error description.
-The local web container has no OpenAI/OpenRouter/Gemini environment key
-configured. A fresh disposable PostgreSQL pair on the default Docker bridge
-still could not communicate (`pg_isready` returned “no response”); the probe
-container was stopped afterward. The minimal host-network app remains healthy.
-The final documentation-only commit is local because pushing still requires
-GitHub authentication.
+The user later confirmed a provider key was configured and Lovable redeployed.
+Production rechecks still show the old OpenAPI error description. The hosted
+health endpoint reports an OpenRouter key marked blocked after HTTP 401; a
+short OpenRouter synthesis request returned HTTP 502 with `All openrouter keys
+failed (HTTP 503)`. Do not claim successful live synthesis until a working
+provider key is available and audio is verified. Full Supabase CLI testing
+remains blocked because Docker bridge container-to-container TCP has not been
+confirmed restored. The local host-network app is healthy.
