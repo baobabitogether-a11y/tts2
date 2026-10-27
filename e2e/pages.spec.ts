@@ -161,7 +161,7 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
     user_metadata: {},
     created_at: new Date().toISOString(),
   };
-  let tested = false;
+  let testStatus: "valid" | "invalid" = "valid";
   let testAuthorization = "";
 
   await page.route("**/auth/v1/signup", (route) =>
@@ -188,7 +188,7 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
               id: "independent-row-id",
               service: "openrouter",
               key_suffix: "9xY2",
-              status: tested ? "valid" : "untested",
+              status: testStatus,
               failures: 0,
               code: null,
               created_at: new Date().toISOString(),
@@ -202,10 +202,15 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
 
     testAuthorization = route.request().headers()["authorization"] ?? "";
     expect(route.request().postDataJSON()).toEqual({ test: true, id: "independent-row-id" });
-    tested = true;
-    await route.fulfill({
-      json: { test: { status: "valid", account: { limit: 100, usage: 2 } } },
-    });
+    await route.fulfill(
+      testStatus === "valid"
+        ? { json: { test: { status: "valid", account: { limit: 100, usage: 2 } } } }
+        : {
+            json: {
+              test: { valid: false, status: "invalid", message: "OpenRouter rejected this key." },
+            },
+          },
+    );
   });
   await page.route("**/api/user/token", (route) => route.fulfill({ json: { tokens: [] } }));
   await page.route("**/api/public/usage?hours=168", (route) =>
@@ -234,7 +239,13 @@ test("account shows a masked OpenRouter key and its tested status", async ({ pag
   await expect(page.getByText(user.email)).toBeVisible();
   await expect(page.getByLabel("openrouter key suffix")).toHaveText("••••9xY2");
   await page.getByRole("button", { name: "Test key" }).click();
-  await expect(page.getByRole("status")).toContainText("valid — limit: 100 · usage: 2");
+  const result = page.getByRole("status");
+  await expect(result).toContainText("valid — limit: 100 · usage: 2");
+  await expect(result).toHaveClass(/text-green-700/);
+  testStatus = "invalid";
+  await page.getByRole("button", { name: "Test key" }).click();
+  await expect(result).toContainText("invalid — OpenRouter rejected this key.");
+  await expect(result).toHaveClass(/text-red-700/);
   expect(testAuthorization).toBe(`Bearer ${accessToken}`);
 });
 

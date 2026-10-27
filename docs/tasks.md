@@ -329,3 +329,12 @@ AGENTS.md - never stop on git push failure - leave that to the developer and con
 ```
 
 **Status: Done.** Added project guidance that a failed `git push` must not block other requested implementation or verification, and that authentication troubleshooting is left to the developer unless requested. Report unpublished commits clearly at completion.
+
+### 32. Use clear colors for key validation
+
+```text
+minimal ui colors and style - think about it.
+validate key - wont u show red/green ??
+```
+
+**Status: Done.** Key validation results now use restrained green text for valid keys and red text for invalid keys, while unavailable/unreachable states stay neutral. A browser regression verifies both success and rejection colors. `npm run build`, targeted ESLint/Prettier, and all 14 Docker-backed E2E tests pass.

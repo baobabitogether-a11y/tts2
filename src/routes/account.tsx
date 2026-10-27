@@ -38,6 +38,17 @@ type UsageReport = {
     provider_output_tokens: number;
   };
 };
+type KeyTestResult = {
+  status: string;
+  message: string;
+};
+function keyTestColor(status: string) {
+  if (status === "valid" || status === "valid_status_unavailable")
+    return "text-green-700 dark:text-green-400";
+  if (status === "invalid" || status === "not_found" || status === "error")
+    return "text-red-700 dark:text-red-400";
+  return "text-muted-foreground";
+}
 
 const services = [
   ["openrouter", "OpenRouter"],
@@ -133,7 +144,7 @@ function Account() {
   const [provider, setProvider] = useState<(typeof services)[number][0]>("openrouter");
   const [providerKey, setProviderKey] = useState("");
   const [keys, setKeys] = useState<ProviderKey[]>([]);
-  const [keyTests, setKeyTests] = useState<Record<string, string>>({});
+  const [keyTests, setKeyTests] = useState<Record<string, KeyTestResult>>({});
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [tokenLabel, setTokenLabel] = useState("External agent");
   const [freshToken, setFreshToken] = useState("");
@@ -252,13 +263,13 @@ function Account() {
 
   async function testKey(id: string) {
     setError("");
-    setKeyTests((current) => ({ ...current, [id]: "Testing…" }));
+    setKeyTests((current) => ({ ...current, [id]: { status: "testing", message: "Testing…" } }));
     try {
       const result = (await accountRequest("/api/user/provider-keys", {
         method: "POST",
         body: JSON.stringify({ test: true, id }),
       })) as { test: { status: string; message?: string; account?: Record<string, unknown> } };
-      const status = result.test.status.replaceAll("_", " ");
+      const status = result.test.status;
       const details = result.test.account
         ? Object.entries(result.test.account)
             .map(
@@ -269,13 +280,19 @@ function Account() {
         : result.test.message || "";
       setKeyTests((current) => ({
         ...current,
-        [id]: [status, details].filter(Boolean).join(" — "),
+        [id]: {
+          status,
+          message: [status.replaceAll("_", " "), details].filter(Boolean).join(" — "),
+        },
       }));
       await loadAccount(session!.access_token);
     } catch (reason) {
       setKeyTests((current) => ({
         ...current,
-        [id]: reason instanceof Error ? reason.message : String(reason),
+        [id]: {
+          status: "error",
+          message: reason instanceof Error ? reason.message : String(reason),
+        },
       }));
     }
   }
@@ -488,7 +505,7 @@ function Account() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={busy || keyTests[key.id] === "Testing…"}
+                      disabled={busy || keyTests[key.id]?.status === "testing"}
                       onClick={() => void testKey(key.id)}
                     >
                       Test key
@@ -503,8 +520,11 @@ function Account() {
                     Remove
                   </Button>
                   {keyTests[key.id] && (
-                    <span role="status" className="w-full text-xs text-muted-foreground">
-                      {keyTests[key.id]}
+                    <span
+                      role="status"
+                      className={`w-full text-xs ${keyTestColor(keyTests[key.id].status)}`}
+                    >
+                      {keyTests[key.id].message}
                     </span>
                   )}
                 </li>
