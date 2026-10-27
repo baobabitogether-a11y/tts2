@@ -74,8 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <nav aria-label="Main navigation" className="hidden items-center gap-1 md:flex">
-            {navigation.map(({ to, label, exact }) => {
-              const active = exact ? pathname === to : pathname.startsWith(to);
+            {navigation.map(({ to, label }) => {
+              const active = to === "/" ? pathname === to : pathname.startsWith(to);
               return (
                 <Link
                   key={to}
@@ -126,8 +126,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="border-t border-border px-4 py-3 md:hidden"
         >
           <div className="mx-auto grid max-w-7xl gap-1">
-            {navigation.map(({ to, label, exact }) => {
-              const active = exact ? pathname === to : pathname.startsWith(to);
+            {navigation.map(({ to, label }) => {
+              const active = to === "/" ? pathname === to : pathname.startsWith(to);
               return (
                 <Link
                   key={to}

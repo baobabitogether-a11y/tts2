@@ -18,13 +18,13 @@ vi.mock("@/integrations/supabase/client.server", () => ({
       let updateValues: Record<string, unknown> | null = null;
       const query = {
         insert: async (row: Record<string, unknown>) => {
-          if (table === "user_api_tokens") state.tokens.set(String(row.id), { revoked_at: null, ...row });
+          if (table === "user_api_tokens") state.tokens.set(String(row["id"]), { revoked_at: null, ...row });
           return { error: null };
         },
         select: () => {
           if (updateValues) {
             const row = state.tokens.get(selectedId);
-            if (row && row.user_id === userId && (!requireUnrevoked || row.revoked_at === null)) {
+            if (row && row["user_id"] === userId && (!requireUnrevoked || row["revoked_at"] === null)) {
               Object.assign(row, updateValues);
               return Promise.resolve({ data: [{ id: selectedId }], error: null });
             }
@@ -47,7 +47,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
         },
         maybeSingle: async () => {
           const row = state.tokens.get(selectedId);
-          return { data: row && (!requireUnrevoked || row.revoked_at === null) ? row : null, error: null };
+          return { data: row && (!requireUnrevoked || row["revoked_at"] === null) ? row : null, error: null };
         },
         update: (values: Record<string, unknown>) => {
           updateValues = values;
@@ -74,9 +74,9 @@ describe("personal API tokens", () => {
     const stored = state.tokens.get(created.id);
 
     expect(created.token).toMatch(/^spk_[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/);
-    expect(stored?.token_hash).not.toBe(created.token);
+    expect(stored?.["token_hash"]).not.toBe(created.token);
     expect(await resolveApiUser(new Request("https://example.test", { headers: { Authorization: `Bearer ${created.token}` } }))).toBe("owner-1");
-    expect(stored?.last_used).toEqual(expect.any(String));
+    expect(stored?.["last_used"]).toEqual(expect.any(String));
     expect(await listUserApiTokens("owner-1")).toMatchObject([{ id: created.id, label: "My agent" }]);
   });
 

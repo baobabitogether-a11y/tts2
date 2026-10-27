@@ -520,9 +520,9 @@ function Account() {
                   {keyTests[key.id] && (
                     <span
                       role="status"
-                      className={`w-full text-xs ${keyTestColor(keyTests[key.id].status)}`}
+                      className={`w-full text-xs ${keyTestColor(keyTests[key.id]?.status ?? "testing")}`}
                     >
-                      {keyTests[key.id].message}
+                      {keyTests[key.id]?.message}
                     </span>
                   )}
                 </li>

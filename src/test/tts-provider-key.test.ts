@@ -55,6 +55,10 @@ vi.mock("@/lib/openrouter-pool.server", () => ({
 import { synthesize } from "@/lib/tts.server";
 
 beforeEach(() => {
+  for (const service of ["OPENROUTER", "LOVABLE", "GEMINI", "OPENAI", "ELEVENLABS", "DEEPGRAM"]) {
+    vi.stubEnv(`${service}_API_KEY`, "");
+    vi.stubEnv(`${service}_API_KEYS`, "");
+  }
   poolState.error = null;
   poolState.rows = [];
   poolState.marked = [];
