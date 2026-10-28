@@ -23,8 +23,6 @@ const config = defineConfig({
     },
   },
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
 });
@@ -32,8 +30,33 @@ const config = defineConfig({
 export default async (configEnv: ConfigEnv) => {
   const { mode } = configEnv;
   const env = loadEnv(mode, process.cwd(), "");
+
+  const supabaseUrl = process.env["A_SUPABASE_URL"] || env["A_SUPABASE_URL"];
+  const supabaseKey =
+    process.env["A_SUPABASE_PUBLISHABLE_KEY"] || env["A_SUPABASE_PUBLISHABLE_KEY"];
+
+  if (supabaseUrl) {
+    process.env["VITE_SUPABASE_URL"] = supabaseUrl;
+  }
+  if (supabaseKey) {
+    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] = supabaseKey;
+  }
+
   if (!process.env["OPENROUTER_API_KEYS"] && env["OPENROUTER_API_KEYS"]) {
     process.env["OPENROUTER_API_KEYS"] = env["OPENROUTER_API_KEYS"];
   }
-  return config(configEnv);
+
+  const resolved = await config(configEnv);
+
+  resolved.define = {
+    ...resolved.define,
+    ...(supabaseUrl && {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
+    }),
+    ...(supabaseKey && {
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabaseKey),
+    }),
+  };
+
+  return resolved;
 };
