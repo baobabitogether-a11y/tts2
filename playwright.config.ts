@@ -23,6 +23,14 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "retain-on-failure",
+    ...(process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
+      ? {
+          launchOptions: {
+            executablePath: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"],
+            args: ["--no-sandbox"],
+          },
+        }
+      : {}),
     ...devices["Desktop Chrome"],
   },
   ...(externalBaseURL

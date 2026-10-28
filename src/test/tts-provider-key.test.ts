@@ -53,6 +53,7 @@ vi.mock("@/lib/openrouter-pool.server", () => ({
 }));
 
 import { synthesize } from "@/lib/tts.server";
+import { createMemoryAccessToken } from "@/lib/memory-api-tokens.server";
 
 beforeEach(() => {
   for (const service of ["OPENROUTER", "LOVABLE", "GEMINI", "OPENAI", "ELEVENLABS", "DEEPGRAM"]) {
@@ -75,6 +76,68 @@ afterEach(() => {
 });
 
 describe("provider API key errors", () => {
+  it("uses a temporary token's own provider keys and retries quota failures", async () => {
+    const created = await createMemoryAccessToken({ openai: ["temporary-key-a", "temporary-key-b"] });
+    const authorizationHeaders: string[] = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const authorization = new Headers(init?.headers).get("Authorization") ?? "";
+      authorizationHeaders.push(authorization);
+      if (authorization.endsWith("temporary-key-a")) {
+        return Response.json({ error: "rate limit" }, { status: 429 });
+      }
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { "Content-Type": "audio/mpeg" },
+      });
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({
+      text: "Temporary account",
+      lang: "en",
+      provider: "openai",
+      userId: `memory:${created.id}`,
+    });
+
+    expect(result).toMatchObject({ provider: "openai", mime: "audio/mpeg" });
+    expect(authorizationHeaders).toEqual([
+      "Bearer temporary-key-a",
+      "Bearer temporary-key-b",
+    ]);
+    expect(poolState.poolReads).toBe(0);
+    expect(poolState.userLookups).toEqual([]);
+  });
+
+  it("uses only the temporary token's keys for Auto routing", async () => {
+    const created = await createMemoryAccessToken({ gemini: ["temporary-gemini-key"] });
+    const encodedPcm = btoa(String.fromCharCode(0, 0, 1, 0));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("temporary-gemini-key");
+      return Response.json({
+        candidates: [
+          {
+            content: {
+              parts: [{ inlineData: { data: encodedPcm, mimeType: "audio/pcm;rate=24000" } }],
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await synthesize({
+      text: "Temporary Auto request",
+      lang: "en",
+      provider: "auto",
+      userId: `memory:${created.id}`,
+    });
+
+    expect(result.provider).toBe("gemini");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(poolState.poolReads).toBe(0);
+    expect(poolState.userLookups).toEqual([]);
+  });
+
   it("explains that OpenRouter needs a key when saved keys cannot be loaded", async () => {
     poolState.error = new Error("Could not load OpenRouter keys from Supabase");
 

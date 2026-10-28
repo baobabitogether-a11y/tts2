@@ -291,6 +291,96 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/public/info": {
+      get: {
+        operationId: "getPublicServiceInfo",
+        summary: "Get API capabilities and provider availability",
+        description:
+          "Returns non-secret service status, provider availability, persistence mode, and features that require Supabase.",
+        security: [],
+        responses: {
+          "200": {
+            description: "Public API capabilities and configuration status.",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+        },
+      },
+    },
+    "/api/public/access-token": {
+      post: {
+        operationId: "createTemporaryAccessToken",
+        summary: "Create a temporary access token without an account",
+        description:
+          "Provide your own provider keys to receive an opaque bearer token. Keys stay in server memory, are never returned, and are lost when the process restarts. Tokens expire after 24 hours.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["provider_keys"],
+                properties: {
+                  provider_keys: {
+                    type: "object",
+                    minProperties: 1,
+                    additionalProperties: {
+                      type: "array",
+                      minItems: 1,
+                      maxItems: 10,
+                      items: { type: "string", minLength: 1, maxLength: 500 },
+                    },
+                    description:
+                      "Map keyed provider names to arrays of API keys. At most 50 keys total.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Temporary bearer token, returned once. Store it securely.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["token", "expires_at", "providers"],
+                  properties: {
+                    token: { type: "string" },
+                    token_type: { type: "string", const: "Bearer" },
+                    expires_at: { type: "string", format: "date-time" },
+                    expires_in: { type: "integer", const: 86400 },
+                    providers: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          service: { type: "string", enum: keyedProviders },
+                          key_count: { type: "integer" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Provider key list is missing or invalid" },
+          "413": { description: "Request body is too large" },
+          "429": { description: "In-memory token capacity has been reached" },
+        },
+      },
+      delete: {
+        operationId: "revokeTemporaryAccessToken",
+        summary: "Revoke the current temporary access token",
+        security: [{ personalApiTokenAuth: [] }],
+        responses: {
+          "200": { description: "Temporary token revoked" },
+          "401": { description: "Missing, invalid, or expired temporary token" },
+        },
+      },
+    },
     "/api/public/openrouter-keys": {
       get: {
         operationId: "listSharedProviderKeys",
@@ -423,7 +513,7 @@ export const openApiSpec = {
         operationId: "getProviderUsageReportLegacy",
         summary: "Get provider usage statistics",
         description:
-          "Legacy alias of /api/report/usage. Returns JSON aggregates by actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage.",
+          "Legacy alias of /api/report/usage. Returns JSON aggregates by actual provider. Temporary tokens receive their own process-memory usage; personal API tokens and Supabase sessions receive their own persisted usage; management credentials receive global usage.",
         security: [{ personalApiTokenAuth: [] }, { supabaseSessionAuth: [] }, { bearerAuth: [] }],
         parameters: [
           {
@@ -449,7 +539,7 @@ export const openApiSpec = {
         operationId: "getProviderUsageReport",
         summary: "Get provider usage report",
         description:
-          "Returns the persisted usage aggregates shown in the app's usage report, grouped by the actual provider. Personal API tokens and Supabase sessions receive only their own usage; management credentials receive global usage. Playable audio history is stored in the user's browser and is not included.",
+          "Returns usage aggregates grouped by the actual provider. Temporary tokens receive their own process-memory usage; personal API tokens and Supabase sessions receive their own persisted usage; management credentials receive global usage. Playable audio history is stored in the user's browser and is not included.",
         security: [{ personalApiTokenAuth: [] }, { supabaseSessionAuth: [] }, { bearerAuth: [] }],
         parameters: [
           {
@@ -674,7 +764,7 @@ export const openApiSpec = {
         type: "http",
         scheme: "bearer",
         description:
-          "Personal API token created from the signed-in user's account. TTS requests using this token use only provider keys saved to that account; usage reports are scoped to that user.",
+          "Personal API token created from a signed-in account, or temporary token created at /api/public/access-token. Temporary tokens contain no provider secrets, expire after 24 hours, and work only while the server process retains them. Usage reports are scoped to the token.",
       },
     },
   },

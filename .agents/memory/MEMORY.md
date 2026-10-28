@@ -1,0 +1,1 @@
+- [Vite sandbox CORS preflight](vite-sandbox-cors-preflight.md) — Replit's dev middleware may answer OPTIONS before route handlers; test production CORS separately.

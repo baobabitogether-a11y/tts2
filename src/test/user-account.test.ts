@@ -61,6 +61,12 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 }));
 
 import { createUserApiToken, listUserApiTokens, resolveApiUser, revokeUserApiToken, UserAuthError } from "@/lib/user-account.server";
+import {
+  createMemoryAccessToken,
+  memoryProviderKeys,
+  revokeMemoryAccessToken,
+  validateMemoryProviderKeys,
+} from "@/lib/memory-api-tokens.server";
 
 beforeEach(() => {
   vi.stubGlobal("crypto", webcrypto);
@@ -91,5 +97,58 @@ describe("personal API tokens", () => {
   it("fails closed for invalid session bearer tokens", async () => {
     await expect(resolveApiUser(new Request("https://example.test", { headers: { Authorization: "Bearer not-a-session" } })))
       .rejects.toBeInstanceOf(UserAuthError);
+  });
+});
+
+describe("temporary API tokens", () => {
+  it("issues an opaque, expiring token for provider-key arrays without using Supabase", async () => {
+    const providerKeys = { openai: ["openai-secret-a", "openai-secret-b"], deepgram: ["deepgram-secret"] };
+    const created = await createMemoryAccessToken(providerKeys);
+    const identity = await resolveApiUser(
+      new Request("https://example.test", {
+        headers: { Authorization: `Bearer ${created.token}` },
+      }),
+    );
+
+    expect(created.token).toMatch(/^spt_[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/);
+    expect(created.token).not.toContain("openai-secret");
+    expect(created.expires_at).toEqual(expect.any(String));
+    expect(created.providers).toEqual([
+      { service: "openai", key_count: 2 },
+      { service: "deepgram", key_count: 1 },
+    ]);
+    expect(identity).toBe(`memory:${created.id}`);
+    if (!identity) throw new Error("Expected the temporary token to resolve.");
+    expect(memoryProviderKeys(identity, "openai")).toEqual(providerKeys.openai);
+    expect(state.tokens.size).toBe(0);
+  });
+
+  it("rejects invalid or expired temporary tokens and revokes valid tokens", async () => {
+    const created = await createMemoryAccessToken({ openai: ["key"] });
+    await expect(
+      resolveApiUser(
+        new Request("https://example.test", {
+          headers: { Authorization: `Bearer ${created.token.slice(0, -1)}x` },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(UserAuthError);
+    expect(await revokeMemoryAccessToken(created.token)).toBe(true);
+    await expect(
+      resolveApiUser(
+        new Request("https://example.test", {
+          headers: { Authorization: `Bearer ${created.token}` },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(UserAuthError);
+  });
+
+  it("accepts only supported provider key arrays within the configured limits", () => {
+    expect(validateMemoryProviderKeys({ openai: [" key-1 ", "key-2", "key-1"] })).toEqual({
+      openai: ["key-1", "key-2"],
+    });
+    expect(validateMemoryProviderKeys({ unknown: ["secret"] })).toBeNull();
+    expect(validateMemoryProviderKeys({ openai: "secret" })).toBeNull();
+    expect(validateMemoryProviderKeys({ openai: [""] })).toBeNull();
+    expect(validateMemoryProviderKeys({ openai: Array(11).fill("secret") })).toBeNull();
   });
 });

@@ -145,7 +145,7 @@ test("mobile menu, theme choices, and page layouts work on a narrow viewport", a
 
   for (const path of ["/", "/docs", "/account", "/reports", "/tokens"]) {
     await page.goto(path);
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("main")).toBeVisible();
     const dimensions = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       content: document.documentElement.scrollWidth,
@@ -560,6 +560,8 @@ test("server-backed status, history, and OpenAPI endpoints respond successfully"
   expect(openapiDocument).toMatchObject({
     openapi: "3.1.0",
     paths: {
+      "/api/public/access-token": { post: { operationId: "createTemporaryAccessToken" } },
+      "/api/public/info": { get: { operationId: "getPublicServiceInfo" } },
       "/api/report/usage": {
         get: {
           operationId: "getProviderUsageReport",
@@ -581,6 +583,75 @@ test("server-backed status, history, and OpenAPI endpoints respond successfully"
       },
     },
   });
+});
+
+test("temporary access tokens expose service info and process-local usage without Supabase", async ({
+  request,
+}) => {
+  const infoResponse = await request.get("/api/public/info");
+  expect(infoResponse.status()).toBe(200);
+  const info = await infoResponse.json();
+  expect(info).toMatchObject({
+    status: "ok",
+    api_capabilities: {
+      temporary_provider_key_tokens: true,
+      in_memory_history: true,
+      in_memory_usage_reports: true,
+    },
+  });
+  const tokenPreflight = await request.fetch("/api/public/access-token", {
+    method: "OPTIONS",
+    headers: {
+      Origin: "http://localhost:3000",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,content-type",
+    },
+  });
+  expect(tokenPreflight.status()).toBe(204);
+  expect(tokenPreflight.headers()["access-control-allow-origin"]).toBe("http://localhost:3000");
+  expect(tokenPreflight.headers()["access-control-allow-methods"]).toContain("POST");
+  expect(tokenPreflight.headers()["access-control-allow-headers"]).toContain("authorization");
+
+  const invalid = await request.post("/api/public/access-token", {
+    data: { provider_keys: { unsupported: ["private-test-key"] } },
+  });
+  expect(invalid.status()).toBe(400);
+
+  const providerKeys = { openai: ["private-openai-test-key", "another-test-key"] };
+  const created = await request.post("/api/public/access-token", {
+    data: { provider_keys: providerKeys },
+    headers: { Origin: "https://third-party-client.example" },
+  });
+  expect(created.status()).toBe(201);
+  expect(created.headers()["access-control-allow-origin"]).toBe("*");
+  const tokenData = await created.json();
+  expect(tokenData).toMatchObject({
+    token_type: "Bearer",
+    expires_in: 86400,
+    providers: [{ service: "openai", key_count: 2 }],
+  });
+  expect(tokenData.token).toMatch(/^spt_[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/);
+  expect(JSON.stringify(tokenData)).not.toContain("private-openai-test-key");
+
+  const usage = await request.get("/api/public/usage?hours=24", {
+    headers: { Authorization: `Bearer ${tokenData.token}` },
+  });
+  expect(usage.status()).toBe(200);
+  expect(await usage.json()).toMatchObject({
+    window_hours: 24,
+    storage: "in-memory",
+    totals: { requests: expect.any(Number) },
+    services: expect.any(Array),
+  });
+
+  const revoked = await request.delete("/api/public/access-token", {
+    headers: { Authorization: `Bearer ${tokenData.token}` },
+  });
+  expect(revoked.status()).toBe(200);
+  const afterRevoke = await request.get("/api/public/usage", {
+    headers: { Authorization: `Bearer ${tokenData.token}` },
+  });
+  expect(afterRevoke.status()).toBe(401);
 });
 
 test("account APIs respond appropriately for the Supabase configuration", async ({ request }) => {

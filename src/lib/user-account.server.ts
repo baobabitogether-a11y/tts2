@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { resolveMemoryAccessToken } from "@/lib/memory-api-tokens.server";
 
 const encoder = new TextEncoder();
 
@@ -48,6 +49,11 @@ export async function resolveApiUser(request: Request) {
   const authorization = request.headers.get("Authorization") || "";
   if (!authorization.startsWith("Bearer ")) return null;
   const token = authorization.slice(7);
+  if (token.startsWith("spt_")) {
+    const memoryToken = await resolveMemoryAccessToken(token);
+    if (!memoryToken) throw new UserAuthError();
+    return memoryToken.userId;
+  }
   if (token.startsWith("spk_")) {
     const match = /^spk_([0-9a-f-]{36})\.([A-Za-z0-9_-]{43})$/.exec(token);
     const id = match?.[1];

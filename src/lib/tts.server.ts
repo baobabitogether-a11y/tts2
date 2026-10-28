@@ -431,6 +431,7 @@ import {
   markUserKey,
   type KeyService,
 } from "./openrouter-pool.server";
+import { memoryProviderKeys } from "./memory-api-tokens.server";
 export const startedAt = Date.now();
 const BLOCKED = new Set([401, 402, 403, 429]);
 const PROVIDER_LABELS: Record<KeyService, string> = {
@@ -570,6 +571,39 @@ async function withProviderKey<T>(
       );
     }
     return parse(response);
+  }
+  if (userId?.startsWith("memory:")) {
+    const keys = shuffled(memoryProviderKeys(userId, service) ?? []);
+    if (!keys.length) {
+      throw new HttpError(
+        400,
+        `Your temporary access token does not include a ${PROVIDER_LABELS[service]} API key.`,
+      );
+    }
+    const failures: ProviderFailure[] = [];
+    for (const key of keys) {
+      let response: Response;
+      try {
+        response = await fn(key);
+      } catch {
+        failures.push({ status: 599 });
+        continue;
+      }
+      if (response.ok) {
+        try {
+          return await parse(response);
+        } catch (error) {
+          failures.push({ status: 502 });
+          if (error instanceof HttpError && error.status < 500) throw error;
+          continue;
+        }
+      }
+      const detail = await providerErrorDetail(response, key);
+      failures.push({ status: response.status, ...(detail ? { detail } : {}) });
+      if (BLOCKED.has(response.status) || response.status >= 500) continue;
+      throw summarizeProviderFailures(service, failures);
+    }
+    throw summarizeProviderFailures(service, failures);
   }
   if (!userId && !hasSupabaseAdminConfig()) {
     const keys = shuffled(environmentKeys(service));
@@ -743,6 +777,29 @@ async function synthesizeAuto(input: TtsInput): Promise<TtsResult> {
           targetLang: undefined,
         }
       : input;
+  if (input.userId?.startsWith("memory:")) {
+    const keysByProvider = memoryProviderKeys(input.userId);
+    const candidates = shuffled(
+      KEY_SERVICES.flatMap((service) =>
+        (keysByProvider?.[service] ?? []).map((apiKey) => ({ service, apiKey })),
+      ),
+    );
+    if (!candidates.length) {
+      throw new HttpError(400, "Your temporary access token has no provider API keys.");
+    }
+    let lastError: unknown;
+    for (const { service, apiKey } of candidates) {
+      try {
+        return await synthesize({ ...request, provider: service, apiKey });
+      } catch (error) {
+        lastError = error;
+        const status = error instanceof HttpError ? error.status : 599;
+        if (error instanceof HttpError && !BLOCKED.has(status) && status < 500) throw error;
+      }
+    }
+    if (lastError) throw lastError;
+    throw new HttpError(400, "No provider key is available for Auto routing.");
+  }
   if (!input.userId && !hasSupabaseAdminConfig()) {
     const candidates = shuffled(
       KEY_SERVICES.flatMap((service) =>

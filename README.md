@@ -62,6 +62,31 @@ Content-Type: application/json
 
 To use your own provider key for just one request, select the matching provider and send `api_key` in the POST JSON body, or send it in the `X-Provider-API-Key` header. This per-request key takes precedence over saved and server-configured keys and is not stored. Do not combine a one-request key with `provider: "auto"`; Auto cannot determine which provider the key belongs to. Avoid putting keys in GET query strings because URLs may be logged.
 
+### Temporary API access without an account
+
+External clients can create a temporary bearer token directly from their own
+provider keys. This does not require registration or Supabase:
+
+```http
+POST /api/public/access-token
+Content-Type: application/json
+
+{"provider_keys":{"openai":["YOUR_OPENAI_API_KEY"],"gemini":["YOUR_GEMINI_API_KEY","YOUR_BACKUP_GEMINI_API_KEY"]}}
+```
+
+The response contains an opaque `spt_` bearer token, its 24-hour expiry, and
+provider/key counts; it never returns the supplied keys. Send the token in the
+`Authorization: Bearer <token>` header to `/api/public/tts` and
+`/api/public/usage`. Revoke it with `DELETE /api/public/access-token` and the
+same bearer header. `GET /api/public/info` describes available providers,
+service capabilities, and database requirements.
+
+Temporary tokens and their provider keys are held only in the current server
+process. They are not saved to Supabase or shared between instances, and stop
+working after a restart or 24 hours. Recent usage is process-local and limited
+to the 500 most recent requests. Protect the bearer token like a password.
+Provider requests may be billed to the owner of the submitted API key.
+
 This project was built with [Lovable](https://lovable.dev).
 
 **Live app**: https://tts2.lovable.app

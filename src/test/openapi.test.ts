@@ -79,6 +79,8 @@ describe("public OpenAPI specification", () => {
 
   it("documents every API route, including the canonical document endpoint", () => {
     expect(Object.keys(openApiSpec.paths).sort()).toEqual([
+      "/api/public/access-token",
+      "/api/public/info",
       "/api/public/openapi.json",
       "/api/public/openrouter-keys",
       "/api/public/tts",
@@ -99,6 +101,10 @@ describe("public OpenAPI specification", () => {
       {},
     ]);
     expect(openApiSpec.paths["/api/public/openapi.json"].get.security).toEqual([]);
+    expect(openApiSpec.paths["/api/public/access-token"].post.operationId).toBe(
+      "createTemporaryAccessToken",
+    );
+    expect(openApiSpec.paths["/api/public/info"].get.operationId).toBe("getPublicServiceInfo");
   });
 
   it("documents the secured shared-provider key management API without exposing credentials", () => {
