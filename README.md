@@ -1,5 +1,6 @@
 # Tts2
 
+
 create a fullstack app. on the frontend be minimalistic and expose an open-api interface. the backend should send back the encoded audio file.
 
 Enable CORS on all backend endpoints (handling OPTIONS preflight, Access-Control-Allow-Origin: *, headers, and methods so external clients can call it).
