@@ -34,3 +34,13 @@ the original local/Codespaces environment.
 - `npm run test:e2e` uses the existing Playwright configuration. Set
   `PLAYWRIGHT_BASE_URL` to test a running server. Two account interaction tests
   require a configured Supabase client; they cannot run in no-Supabase mode.
+
+## Verified import setup
+
+The Replit runtime is configured for Node.js 22 and dependencies are installed.
+The existing port-5000 workflow and Vite proxy-host configuration are retained.
+Verified the playground visually in preview, `/health` through the Replit
+development URL, and a real Google synthesis request returning MPEG audio.
+All 55 unit tests, TypeScript checks, migration metadata checks, and the
+existing Cloudflare-targeted build pass. The Playwright browser suite was not
+run; account interactions remain unverified without Supabase.
